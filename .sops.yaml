@@ -1,4 +1,3 @@
-# Replace deliberately with Antix's OWN public age recipient; never copy Wintix's.
 creation_rules:
   - path_regex: secrets/[^/]+\.yaml$
-    age: ANTIX_AGE_RECIPIENT_ENROLLMENT_REQUIRED
+    age: age1pwfg6s4zswa0fszu3ad22y0q0030s6hj869kpdl3ylvm7azwcvgqkgg2hj
