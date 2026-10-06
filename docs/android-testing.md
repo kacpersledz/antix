@@ -14,10 +14,10 @@ in or restart the VM, then:
 bash ~/.antix/bootstrap.sh
 ```
 
-Until you publish Antix's own enrollment, credentials intentionally remain absent.
-Complete the standalone trusted-machine enrollment in `docs/secrets.md` once
-and publish the two repository artifacts. For an enrolled repository, paste the
-Antix identity from Bitwarden only at the hidden prompt. Then:
+The Antix public age recipient and SOPS-encrypted SSH payload are already
+committed in this PR. Before testing SSH recovery, ensure the dedicated
+`github-ssh.pub` created during enrollment is registered in GitHub. At the hidden
+prompt, paste the Antix identity from Bitwarden. Then:
 
 ```sh
 antix-doctor

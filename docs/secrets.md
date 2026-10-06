@@ -1,11 +1,15 @@
 # Antix secrets and recovery
 
 Antix has its own age identity and Ed25519 GitHub SSH key. Bitwarden contains
-only the `AGE-SECRET-KEY`; Git contains the public age recipient and SOPS-encrypted
-SSH key. Never commit a plaintext private key or put it in Nix expressions.
-No actual identity or SSH key is included in V1.
+only the private `AGE-SECRET-KEY`; Git contains the public age recipient and
+SOPS-encrypted dedicated GitHub SSH private key. No plaintext private key or age
+identity is committed or placed in Nix expressions.
 
 ## First enrollment: once on a trusted Nix machine
+
+The current repository is already enrolled. Keep this procedure for deliberately
+recreating or rotating the enrollment in the future; it is not part of normal
+Android recovery.
 
 Run this **single copy/paste command** once on any already-working trusted Nix
 machine as your normal user. It needs no Antix clone, `~/.antix`, Home Manager,

@@ -9,11 +9,11 @@ which runs an aarch64 Debian VM under AVF. Treat that VM as disposable: the publ
 repository contains the reproducible configuration and encrypted credentials;
 Bitwarden holds only Antix's private age identity.
 
-V1 ships **unenrolled placeholders**. The command above installs the CLI
-without GitHub credentials until you complete the one-time
+V1 is enrolled with a public age recipient and SOPS-encrypted dedicated GitHub
+SSH private key. Fresh recovery asks `Paste Antix AGE-SECRET-KEY from Bitwarden:`
+with hidden input. The
 [trusted Nix machine enrollment](docs/secrets.md#first-enrollment-once-on-a-trusted-nix-machine)
-and publish the public recipient and encrypted SSH payload. Once enrolled,
-recovery asks `Paste Antix AGE-SECRET-KEY from Bitwarden:` with hidden input.
+procedure remains documented for deliberate future re-enrollment or rotation.
 Never reuse Wintix's identity or SSH key.
 
 `install.sh` checks the platform, installs minimum HTTPS/Git dependencies and

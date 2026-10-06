@@ -3,5 +3,8 @@ result-*
 *.pem
 *.key
 keys.txt
+AGE-SECRET-KEY.txt
+antix-enrollment-*/
+antix-enrollment-*.zip
 
 __pycache__/
