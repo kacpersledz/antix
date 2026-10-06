@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 -m unittest discover -s tests -v
-      - run: shellcheck -S error -e SC1090,SC1091 install.sh bootstrap.sh commands/*.sh
+      - run: shellcheck -e SC1090,SC1091 install.sh bootstrap.sh commands/*.sh
       - run: git diff --check
   nix-evaluation:
     runs-on: ubuntu-24.04-arm
@@ -27,4 +27,5 @@ jobs:
         run: |
           export ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME"
           sg nix-users -c 'nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath'
+          sg nix-users -c 'nix eval --json --file tests/configuration.nix'
           sg nix-users -c 'nix flake check --no-build --no-update-lock-file'

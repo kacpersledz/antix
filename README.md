@@ -10,7 +10,8 @@ repository contains the reproducible configuration and encrypted credentials;
 Bitwarden holds only Antix's private age identity.
 
 V1 ships **unenrolled placeholders**. The command above installs the CLI
-without GitHub credentials until you complete [initial enrollment](docs/secrets.md)
+without GitHub credentials until you complete the one-time
+[trusted Nix machine enrollment](docs/secrets.md#first-enrollment-once-on-a-trusted-nix-machine)
 and publish the public recipient and encrypted SSH payload. Once enrolled,
 recovery asks `Paste Antix AGE-SECRET-KEY from Bitwarden:` with hidden input.
 Never reuse Wintix's identity or SSH key.
@@ -22,6 +23,9 @@ to `bootstrap.sh`. Run as the normal Debian user with working `sudo`.
 
 Bootstrap uses Debian's `nix-bin` and `nix-setup-systemd`, starts `nix-daemon`,
 and enables `nix-command flakes`. Debian Nix 2.26.3 is the tested target version.
+Antix does not install or inject a nixpkgs Nix client; commands use the host Nix
+through PATH (normally `/usr/bin/nix` talking to Debian's `nix-daemon`).
+Home Manager's generic Linux profile hook uses Debian's packaged profile script.
 If it adds you to `nix-users` but your current session lacks that group, it stops
 without claiming completion. Log out of the Debian session and back in, or
 restart the VM, then resume:
@@ -53,8 +57,8 @@ Node/JDK versions belong in individual project devShells.
 | `antix-doctor` | Print pass/fail diagnostics; exit nonzero for incomplete setup |
 | `antix-codex` | Create or reattach shpool session `antix-codex` running Codex |
 
-Run `antix-codex` from the project directory for a new session. Reattaching keeps
-the existing process and working directory. Detach with `Ctrl-Space Ctrl-q`; if
+A new `antix-codex` session starts in your invocation directory using shpool's
+`--dir .`. Reattaching keeps the existing process and working directory. Detach with `Ctrl-Space Ctrl-q`; if
 a stale connection prevents reattachment, run `shpool detach antix-codex`.
 Shpool autostarts its daemon. It survives terminal UI disconnects while the VM
 and daemon remain alive; it does not survive VM destruction or shutdown.
@@ -64,6 +68,7 @@ authentication and session data are intentionally outside Home Manager in V1.
 Authenticate Codex using its own interactive flow. Antix does not require
 `gh auth login`.
 
+Git author identity matches Wintix (`kacpersledz`, `casper.sledx@gmail.com`).
 Git initially uses public HTTPS. After decryption, bootstrap checks GitHub SSH
 with the dedicated key and changes origin to SSH only on a successful greeting
 for `kacpersledz`. On first connection, independently check GitHub's published
@@ -84,7 +89,8 @@ Validation:
 ```sh
 python3 -m unittest discover -s tests -v
 for script in install.sh bootstrap.sh commands/*.sh; do bash -n "$script"; done
-shellcheck -S error -e SC1090,SC1091 install.sh bootstrap.sh commands/*.sh
+shellcheck -e SC1090,SC1091 install.sh bootstrap.sh commands/*.sh
+nix eval --json --file tests/configuration.nix
 ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME" nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath
 ```
 

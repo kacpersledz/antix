@@ -21,6 +21,7 @@ class Scripts(unittest.TestCase):
         self.bin = self.root / 'bin'
         self.bin.mkdir()
         self.mock('id', 'if [ "$1" = -u ]; then echo '+str(os.getuid())+'; else echo tester; fi')
+        self.mock('nix', 'if [ "$1" = --version ]; then echo "nix (Nix) 2.26.3"; else exit 1; fi')
         self.mock('age-keygen', 'if [ "$(cat "$2")" = TEST_IDENTITY ]; then echo age1test; else exit 1; fi')
         self.env = dict(os.environ, HOME=str(self.home), ANTIX_PATH=str(self.repo), PATH=str(self.bin)+':'+os.environ['PATH'])
     def tearDown(self): self.tmp.cleanup()
@@ -60,11 +61,21 @@ class Scripts(unittest.TestCase):
         self.mock('shpool','printf "%s\\n" "$*"')
         result=self.run_script('codex')
         self.assertEqual(result.returncode,0)
-        self.assertEqual(result.stdout.strip(),'attach --cmd codex antix-codex')
+        self.assertEqual(result.stdout.strip(),'attach --dir . --cmd codex antix-codex')
     def test_doctor_hides_identity(self):
         self.key('TEST_IDENTITY')
         r=self.run_script('doctor')
         self.assertNotIn('TEST_IDENTITY',r.stdout+r.stderr)
+    def test_doctor_reports_configured_author_without_values(self):
+        self.mock('git', 'case "$*" in *user.name) echo MOCK_AUTHOR ;; *user.email) echo mock@example.test ;; esac')
+        r=self.run_script('doctor')
+        self.assertIn('PASS Git author identity',r.stdout)
+        self.assertNotIn('MOCK_AUTHOR',r.stdout+r.stderr)
+        self.assertNotIn('mock@example.test',r.stdout+r.stderr)
+    def test_doctor_reports_missing_author(self):
+        self.mock('git','exit 1')
+        r=self.run_script('doctor')
+        self.assertIn('FAIL Git author identity',r.stdout)
     def restore(self, fixture):
         # A controlling pseudoterminal exercises /dev/tty and hidden input, even
         # though the installer normally reads its shell source from a pipe.

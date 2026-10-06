@@ -3,6 +3,10 @@ let
   enrolled = builtins.readFile ../secrets/github-ssh-key.yaml != builtins.readFile ../secrets/enrollment-placeholder.txt;
 in {
   programs.git.enable = true;
+  programs.git.settings.user = {
+    name = "kacpersledz";
+    email = "casper.sledx@gmail.com";
+  };
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;

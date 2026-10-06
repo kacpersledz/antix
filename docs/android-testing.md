@@ -15,8 +15,9 @@ bash ~/.antix/bootstrap.sh
 ```
 
 Until you publish Antix's own enrollment, credentials intentionally remain absent.
-Follow `docs/secrets.md` once. For an enrolled repository, paste the Antix identity
-from Bitwarden only at the hidden prompt. Then:
+Complete the standalone trusted-machine enrollment in `docs/secrets.md` once
+and publish the two repository artifacts. For an enrolled repository, paste the
+Antix identity from Bitwarden only at the hidden prompt. Then:
 
 ```sh
 antix-doctor
