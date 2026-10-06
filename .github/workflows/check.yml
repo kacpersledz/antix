@@ -14,11 +14,17 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y nix-bin nix-setup-systemd
+      - name: Install Debian-packaged Nix and prepare daemon access
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nix-bin nix-setup-systemd
+          sudo systemctl enable --now nix-daemon.socket nix-daemon.service
+          getent group nix-users || sudo groupadd --system nix-users
+          sudo usermod -aG nix-users "$(id -un)"
       - name: Evaluate pinned standalone Home Manager configuration
         env:
           NIX_CONFIG: experimental-features = nix-command flakes
         run: |
           export ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME"
-          nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath
-          nix flake check --no-build --no-update-lock-file
+          sg nix-users -c 'nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath'
+          sg nix-users -c 'nix flake check --no-build --no-update-lock-file'
