@@ -1,0 +1,3 @@
+creation_rules:
+  - path_regex: secrets/[^/]+\.yaml$
+    age: age1pwfg6s4zswa0fszu3ad22y0q0030s6hj869kpdl3ylvm7azwcvgqkgg2hj
