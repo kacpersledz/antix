@@ -1,9 +1,9 @@
 # Minimal Android Terminal acceptance test
 
-This is an experimental minimal baseline. Do not merge the experiment PR as
-part of preparing it. Before merge, explicitly clone its branch over HTTPS into
-`~/.antix` and run `bash ~/.antix/bootstrap.sh`; the master installer still uses
-master. Updates intentionally require clean master.
+This is an experimental minimal baseline. Before publishing a new baseline,
+testing the PR branch directly on Android is preferred. After merge, use the
+normal `master` installer for fresh-device acceptance testing. Updates
+intentionally require clean `master`.
 
 Published fresh VM test (normal user in native Android Terminal Debian):
 
