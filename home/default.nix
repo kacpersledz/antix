@@ -18,6 +18,11 @@ in {
   home.packages = [ ];
   programs.home-manager.enable = false;
   targets.genericLinux.enable = true;
+  # This terminal baseline needs no GPU integration, desktop MIME tools or manuals.
+  targets.genericLinux.gpu.enable = false;
+  xdg.mime.enable = false;
+  programs.man.enable = false;
+  manual.manpages.enable = false;
   nix.package = null;
   # No user services in this baseline; avoid the Rust-based sd-switch closure.
   systemd.user.startServices = false;

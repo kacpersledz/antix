@@ -44,7 +44,9 @@ tests are retained for later work; bootstrap does not invoke them.
 Only stable nixpkgs and Home Manager are flake inputs. Home Manager follows
 nixpkgs, pinned to the known 26.05 release-pipeline revision
 `7fc6f2c20af09cdcaf48b92ec3121860139ec668` to remove cache freshness as a variable.
-The HM CLI and all Antix package wrappers are disabled. Invoke operations from
+The HM CLI and all Antix package wrappers are disabled. Nonessential Home
+Manager defaults for GPU integration, desktop MIME tools, manuals and service
+switching are also disabled to keep the terminal baseline small. Invoke operations from
 the checkout:
 
 ```sh

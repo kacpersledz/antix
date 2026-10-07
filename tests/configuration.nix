@@ -15,5 +15,10 @@ assert home.programs.home-manager.enable == false;
 assert home.imports == [ ../home/zsh.nix ../home/git.nix ];
 assert home.nix.package == null;
 assert home.systemd.user.startServices == false;
+assert home.targets.genericLinux.enable;
+assert !home.targets.genericLinux.gpu.enable;
+assert !home.xdg.mime.enable;
+assert !home.programs.man.enable;
+assert !home.manual.manpages.enable;
 assert builtins.match ".*/usr/share/doc/nix-bin/examples/nix.sh.*" home.home.sessionVariablesExtra != null;
 true
