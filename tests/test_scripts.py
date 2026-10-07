@@ -57,11 +57,6 @@ class Scripts(unittest.TestCase):
         p=self.repo/'secrets/github-ssh-key.yaml';p.write_text('existing encrypted material')
         self.assertNotEqual(self.run_script('secrets-enroll').returncode,0)
         self.assertEqual(p.read_text(),'existing encrypted material')
-    def test_codex_named_attach(self):
-        self.mock('shpool','printf "%s\\n" "$*"')
-        result=self.run_script('codex')
-        self.assertEqual(result.returncode,0)
-        self.assertEqual(result.stdout.strip(),'attach --dir . --cmd codex antix-codex')
     def test_doctor_hides_identity(self):
         self.key('TEST_IDENTITY')
         r=self.run_script('doctor')

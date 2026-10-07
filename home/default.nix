@@ -1,4 +1,4 @@
-{ config, lib, commands, ... }:
+{ config, lib, ... }:
 let
   user = builtins.getEnv "ANTIX_USER";
   home = builtins.getEnv "ANTIX_HOME";
@@ -11,14 +11,21 @@ let
   '';
 in {
   assertions = [ { assertion = user != "" && home != ""; message = "Use antix-rebuild to supply the non-secret Debian user/home parameters."; } ];
-  imports = [ ./zsh.nix ./development.nix ./git-ssh.nix ];
+  imports = [ ./zsh.nix ./git.nix ];
   home.username = user;
   home.homeDirectory = home;
   home.stateVersion = "26.05";
-  home.packages = builtins.attrValues commands;
-  programs.home-manager.enable = true;
+  home.packages = [ ];
+  programs.home-manager.enable = false;
   targets.genericLinux.enable = true;
+  # This terminal baseline needs no GPU integration, desktop MIME tools or manuals.
+  targets.genericLinux.gpu.enable = false;
+  xdg.mime.enable = false;
+  programs.man.enable = false;
+  manual.manpages.enable = false;
   nix.package = null;
+  # No user services in this baseline; avoid the Rust-based sd-switch closure.
+  systemd.user.startServices = false;
   home.sessionPath = [ "${config.home.profileDirectory}/bin" ];
   home.sessionVariablesExtra = lib.mkForce (debianNixProfile + ''
     export TERM="$TERM"
@@ -26,5 +33,4 @@ in {
   programs.bash.initExtra = lib.mkForce (debianNixProfile + ''
     . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
   '');
-  systemd.user.startServices = "sd-switch";
 }

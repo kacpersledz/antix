@@ -1,4 +1,4 @@
-name: V1 checks
+name: Minimal baseline checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -10,7 +10,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -v
       - run: shellcheck -e SC1090,SC1091 install.sh bootstrap.sh commands/*.sh
       - run: git diff --check
-  nix-evaluation:
+  nix-arm64-build:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -21,11 +21,43 @@ jobs:
           sudo systemctl enable --now nix-daemon.socket nix-daemon.service
           getent group nix-users || sudo groupadd --system nix-users
           sudo usermod -aG nix-users "$(id -un)"
-      - name: Evaluate pinned standalone Home Manager configuration
+      - name: Evaluate and build pinned ARM64 Home Manager configuration
         env:
-          NIX_CONFIG: experimental-features = nix-command flakes
+          NIX_CONFIG: |
+            experimental-features = nix-command flakes
+            max-jobs = 1
+            cores = 1
+            max-substitution-jobs = 2
+            http-connections = 4
         run: |
           export ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME"
           sg nix-users -c 'nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath'
           sg nix-users -c 'nix eval --json --file tests/configuration.nix'
           sg nix-users -c 'nix flake check --no-build --no-update-lock-file'
+          sg nix-users -c 'nix build --impure --no-update-lock-file --dry-run .#homeConfigurations.antix.activationPackage' 2>&1 | tee build-plan.log
+          python3 - <<'PYTHON'
+          import re
+          from pathlib import Path
+          local_builds = []
+          building = False
+          for line in Path('build-plan.log').read_text().splitlines():
+              if re.search(r'derivations? will be built:', line):
+                  building = True
+              elif re.search(r'paths? will be fetched', line):
+                  building = False
+              elif building and line.strip().endswith('.drv'):
+                  local_builds.append(line.strip())
+          heavy = re.compile(r'-(rustc|cargo|go(?:-|[0-9])|clang|cmake|codex|sops-install-secrets)|-go-modules')
+          unexpected = [path for path in local_builds if heavy.search(Path(path).name)]
+          if unexpected:
+              raise SystemExit('Investigate heavyweight local builds:\n' + '\n'.join(unexpected))
+          print('Local derivations inspected:', len(local_builds))
+          PYTHON
+          sg nix-users -c 'nix build --impure --no-update-lock-file --no-link .#homeConfigurations.antix.activationPackage' 2>&1 | tee build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-build-logs
+          path: |
+            build-plan.log
+            build.log

@@ -1,101 +1,99 @@
 # Antix
 
+Antix is an **experimental minimal Android Nix/Home Manager baseline** for the
+native Android Terminal aarch64 Debian VM. The full V1 realization attempted
+heavy local builds, including `sops-install-secrets-0.0.1-go-modules`, and made
+the VM effectively unusable. This experiment asks whether Debian Nix and a very
+small Home Manager environment can install reliably on a fresh VM.
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kacpersledz/antix/master/install.sh | bash
 ```
 
-Antix restores a development environment in Android's native Linux Terminal,
-which runs an aarch64 Debian VM under AVF. Treat that VM as disposable: the public
-repository contains the reproducible configuration and encrypted credentials;
-Bitwarden holds only Antix's private age identity.
-
-V1 is enrolled with a public age recipient and SOPS-encrypted dedicated GitHub
-SSH private key. Fresh recovery asks `Paste Antix AGE-SECRET-KEY from Bitwarden:`
-with hidden input. The
-[trusted Nix machine enrollment](docs/secrets.md#first-enrollment-once-on-a-trusted-nix-machine)
-procedure remains documented for deliberate future re-enrollment or rotation.
-Never reuse Wintix's identity or SSH key.
-
-`install.sh` checks the platform, installs minimum HTTPS/Git dependencies and
-clones `master` into `~/.antix`. Existing checkouts must be clean, on `master`,
-and have the expected origin; updates are fast-forward only. It then hands off
-to `bootstrap.sh`. Run as the normal Debian user with working `sudo`.
-
-Bootstrap uses Debian's `nix-bin` and `nix-setup-systemd`, starts `nix-daemon`,
-and enables `nix-command flakes`. Debian Nix 2.26.3 is the tested target version.
-Antix does not install or inject a nixpkgs Nix client; commands use the host Nix
-through PATH (normally `/usr/bin/nix` talking to Debian's `nix-daemon`).
-Home Manager's generic Linux profile hook uses Debian's packaged profile script.
-If it adds you to `nix-users` but your current session lacks that group, it stops
-without claiming completion. Log out of the Debian session and back in, or
-restart the VM, then resume:
+Run as the normal Debian user with working `sudo`. The installer uses HTTPS,
+checks the platform, and clones clean `master` into `~/.antix`. Bootstrap installs
+Debian `nix-bin` and `nix-setup-systemd`, enables the daemon, and adds the user to
+`nix-users`. If group membership is not active, it stops cleanly. Restart the
+session or VM, then resume:
 
 ```sh
 bash ~/.antix/bootstrap.sh
 ```
 
-Home Manager activates a standalone `aarch64-linux` environment. Existing
-conflicting dotfiles cause activation to fail; preserve and review them manually
-before retrying. No automatic backup overwrite is enabled. Home Manager
-configures Zsh with the `clean` oh-my-zsh theme, Git plugin, completions,
-autosuggestions and highlighting. Private/local additions remain possible in
-`~/.config/zsh/local.zsh`. Bootstrap attempts to set Zsh as the login shell; the
-change takes effect at the next login.
+The baseline retains standalone Home Manager activation, generic Linux support,
+Debian's `/usr/share/doc/nix-bin/examples/nix.sh` profile hook (`nix.package = null`),
+and the non-secret `ANTIX_USER` / `ANTIX_HOME` runtime identity parameters.
+It installs Git with author `kacpersledz` / `casper.sledx@gmail.com`, and Zsh with
+completion, autosuggestions, syntax highlighting, oh-my-zsh's `clean` theme and
+`git` plugin. Optional `~/.config/zsh/local.zsh` extensions remain supported.
+Bootstrap attempts to set `~/.nix-profile/bin/zsh` as the login shell. Existing
+conflicting dotfiles stop activation for manual review.
 
-Packages include Git, curl, jq, ripgrep, fd, fzf, age, SOPS, OpenSSH, shpool,
-Zsh, Codex and standard file/archiving tools. Stable nixpkgs and Home Manager
-26.05 are pinned; Codex comes from a separately pinned unstable nixpkgs. Project
-Node/JDK versions belong in individual project devShells.
+Temporarily absent from automatic installation: **Codex, shpool, GitHub SSH
+recovery, sops-nix, and the developer CLI bundle** (including age/SOPS/OpenSSH,
+ripgrep/fd/fzf and convenience tools). There is no Bitwarden prompt, decryption,
+SSH authentication attempt, or remote switching. Fresh checkouts retain
+`https://github.com/kacpersledz/antix.git`.
 
-| Command | Behavior |
-| --- | --- |
-| `antix-bootstrap` | Reconcile/recover the Debian and user environment |
-| `antix-rebuild` | Apply current checkout without Git pulls or lock updates |
-| `antix-update` | Fast-forward clean `master` from public HTTPS, then rebuild; no commits/pushes or flake updates |
-| `antix-secrets-bootstrap` | Restore and validate Antix's age identity |
-| `antix-secrets-enroll` | Deliberately enroll an SSH key; print its public key for manual registration |
-| `antix-doctor` | Print pass/fail diagnostics; exit nonzero for incomplete setup |
-| `antix-codex` | Create or reattach shpool session `antix-codex` running Codex |
+The encrypted enrollment material `.sops.yaml` and
+`secrets/github-ssh-key.yaml` remains preserved and untouched. Private Age keys
+remain outside Git. Standalone enrollment/recovery scripts and their safety
+tests are retained for later work; bootstrap does not invoke them.
+[Enrollment documentation](docs/secrets.md) describes that inactive workflow.
 
-A new `antix-codex` session starts in your invocation directory using shpool's
-`--dir .`. Reattaching keeps the existing process and working directory. Detach with `Ctrl-Space Ctrl-q`; if
-a stale connection prevents reattachment, run `shpool detach antix-codex`.
-Shpool autostarts its daemon. It survives terminal UI disconnects while the VM
-and daemon remain alive; it does not survive VM destruction or shutdown.
+Only stable nixpkgs and Home Manager are flake inputs. Home Manager follows
+nixpkgs, pinned to the known 26.05 release-pipeline revision
+`7fc6f2c20af09cdcaf48b92ec3121860139ec668` to remove cache freshness as a variable.
+The HM CLI and all Antix package wrappers are disabled. Nonessential Home
+Manager defaults for GPU integration, desktop MIME tools, manuals and service
+switching are also disabled to keep the terminal baseline small. Invoke operations from
+the checkout:
 
-**All of `~/.codex` remains mutable**: configuration, AGENTS.md, agents,
-authentication and session data are intentionally outside Home Manager in V1.
-Authenticate Codex using its own interactive flow. Antix does not require
-`gh auth login`.
+```sh
+bash ~/.antix/commands/antix-rebuild.sh
+bash ~/.antix/commands/antix-update.sh
+```
 
-Git author identity matches Wintix (`kacpersledz`, `casper.sledx@gmail.com`).
-Git initially uses public HTTPS. After decryption, bootstrap checks GitHub SSH
-with the dedicated key and changes origin to SSH only on a successful greeting
-for `kacpersledz`. On first connection, independently check GitHub's published
-host fingerprint with interactive `ssh -T git@github.com`; bootstrap never
-disables host verification. GitHub's successful authentication returns exit 1,
-which Antix handles explicitly. Rerun bootstrap after registration/host trust.
+Rebuild directly executes the activation package without updating the lock.
+Update requires clean `master`, fetches public HTTPS and fast-forwards before
+rebuilding; `--checkout-only` skips activation.
 
-The flake receives only the current user's name/home from `antix-rebuild` using
-`--impure`; secrets are never read by Nix evaluation. sops-nix decrypts at runtime
-with mode 0400 and skips its service if the age file is absent. An exact checked-in
-placeholder disables secret declarations until enrollment; malformed enrolled
-payloads are not treated as placeholders. Missing credentials show as failures
-in doctor. The age identity uses `~/.config/sops/age/keys.txt` (0700 directory,
-0600 file), independent of `XDG_CONFIG_HOME`.
+`~/.config/nix/nix.conf` includes `antix.conf`. Antix manages that separate file
+with these conservative settings, also used by ARM64 CI:
+
+```conf
+experimental-features = nix-command flakes
+max-jobs = 1
+cores = 1
+max-substitution-jobs = 2
+http-connections = 4
+```
+
+Bootstrap refuses symlinked configs and unexpected managed content, permits
+migration from the previous one-line config, and preserves user config entries.
+Unexpected local builds cannot use all VM CPUs.
 
 Validation:
 
 ```sh
 python3 -m unittest discover -s tests -v
-for script in install.sh bootstrap.sh commands/*.sh; do bash -n "$script"; done
 shellcheck -e SC1090,SC1091 install.sh bootstrap.sh commands/*.sh
+git diff --check
 nix eval --json --file tests/configuration.nix
-ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME" nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath
+export ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME"
+nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath
+nix flake check --no-build --no-update-lock-file
+nix build --impure --no-update-lock-file --dry-run .#homeConfigurations.antix.activationPackage
+nix build --impure --no-update-lock-file --no-link .#homeConfigurations.antix.activationPackage
 ```
 
-The lockfile reuses the verified input pins from Wintix, keeping only the four
-Antix inputs. Script tests use fake tools and non-credential fixtures. Real Nix
-activation, daemon/group/session behavior, shpool disconnect persistence and
-runtime SOPS/GitHub authentication must be verified on Android. See
-[the Android test procedure](docs/android-testing.md).
+ARM64 CI installs Debian Nix and performs evaluation, dry-run and real activation
+package build, retaining logs. Inspect the local-build section: tiny generated
+HM/config derivations are acceptable; Rust/Cargo, Go or `*-go-modules`, clang,
+cmake, Codex or sops-install-secrets source builds require investigation.
+A passing ARM64 build is required before considering the PR ready.
+See [Android acceptance testing](docs/android-testing.md) for the fresh VM test.
+
+Features will return incrementally only after this baseline is validated:
+baseline → small CLI tools → ripgrep/fd/fzf → age/sops/openssh → Antix-native
+secret decryption → shpool → lightweight Codex installation.

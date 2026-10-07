@@ -22,41 +22,28 @@ touch "$conf"
 line='!include antix.conf'
 grep -Fxq "$line" "$conf" || printf '\n%s\n' "$line" >> "$conf"
 managed=$HOME/.config/nix/antix.conf
+settings='experimental-features = nix-command flakes
+max-jobs = 1
+cores = 1
+max-substitution-jobs = 2
+http-connections = 4'
 if [[ -e $managed || -L $managed ]]; then
-  [[ ! -L $managed && $(cat "$managed") == 'experimental-features = nix-command flakes' ]] || die 'Unexpected existing antix.conf; review manually.'
+  # Allow a safe migration from the previous one-line Antix configuration.
+  [[ ! -L $managed ]] || die 'Refusing symlinked antix.conf.'
+  existing=$(cat "$managed")
+  [[ $existing == "$settings" || $existing == 'experimental-features = nix-command flakes' ]] || die 'Unexpected existing antix.conf; review manually.'
 fi
 tmp=$(mktemp "$HOME/.config/nix/.antix.XXXXXX")
-printf 'experimental-features = nix-command flakes\n' > "$tmp"
-mv "$tmp" "$HOME/.config/nix/antix.conf"
+printf '%s\n' "$settings" > "$tmp"
+mv "$tmp" "$managed"
 if [[ " $(id -nG) " != *' nix-users '* ]]; then
   die 'nix-users membership is not active. Log out of the Debian session and log back in (or restart the VM), then run: bash ~/.antix/bootstrap.sh'
 fi
-# Apt tools allow hidden recovery before the declarative environment exists.
-if ! command -v age-keygen >/dev/null; then
-  sudo apt-get update
-  sudo apt-get install -y age
-fi
-if ! cmp -s "$repo/secrets/github-ssh-key.yaml" "$repo/secrets/enrollment-placeholder.txt"; then
-  bash "$repo/commands/antix-secrets-bootstrap.sh"
-else
-  printf 'Secrets are not enrolled yet; installing CLI environment without GitHub credentials. See docs/secrets.md.\n'
-fi
 bash "$repo/commands/antix-rebuild.sh"
 export PATH="$HOME/.nix-profile/bin:$PATH"
-if identity_valid && ! cmp -s "$repo/secrets/github-ssh-key.yaml" "$repo/secrets/enrollment-placeholder.txt"; then
-  systemctl --user restart sops-nix
-  [[ -f $HOME/.config/sops-nix/secrets/antix-github-ssh ]] || die "Decrypted SSH key unavailable."
-  # GitHub returns status 1 even for successful authentication; inspect its greeting.
-  if message=$(ssh -T -o BatchMode=yes -o ConnectTimeout=10 git@github.com 2>&1); then :; fi
-  if [[ ${message:-} == *"Hi kacpersledz! You've successfully authenticated,"* ]]; then
-    git -C "$repo" remote set-url origin git@github.com:kacpersledz/antix.git
-  else
-    printf 'GitHub SSH is not verified. Review host trust/key registration with ssh -T git@github.com, then rerun bootstrap. HTTPS retained.\n'
-  fi
-fi
 shell=$HOME/.nix-profile/bin/zsh
 if [[ -x $shell && $(getent passwd "$(id -un)" | cut -d: -f7) != "$shell" ]]; then
   grep -Fxq "$shell" /etc/shells || printf '%s\n' "$shell" | sudo tee -a /etc/shells >/dev/null
   sudo chsh -s "$shell" "$(id -un)" || printf 'Could not change login shell; run zsh manually.\n'
 fi
-printf 'Antix activated. A new login picks up Zsh. Run antix-doctor.\n'
+printf 'Minimal Antix baseline activated. A new login picks up Zsh; Git remains on HTTPS.\n'
