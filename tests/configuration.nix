@@ -14,5 +14,6 @@ assert home.home.packages == [ ];
 assert home.programs.home-manager.enable == false;
 assert home.imports == [ ../home/zsh.nix ../home/git.nix ];
 assert home.nix.package == null;
+assert home.systemd.user.startServices == false;
 assert builtins.match ".*/usr/share/doc/nix-bin/examples/nix.sh.*" home.home.sessionVariablesExtra != null;
 true

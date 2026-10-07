@@ -19,6 +19,8 @@ in {
   programs.home-manager.enable = false;
   targets.genericLinux.enable = true;
   nix.package = null;
+  # No user services in this baseline; avoid the Rust-based sd-switch closure.
+  systemd.user.startServices = false;
   home.sessionPath = [ "${config.home.profileDirectory}/bin" ];
   home.sessionVariablesExtra = lib.mkForce (debianNixProfile + ''
     export TERM="$TERM"
