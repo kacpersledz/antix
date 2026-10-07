@@ -1,47 +1,69 @@
-# Android Terminal acceptance test
+# Minimal Android Terminal acceptance test
 
-After merging the V1 PR into `master`, on a fresh Android native Terminal Debian
-VM as the normal user:
+This is an experimental minimal baseline. Do not merge the experiment PR as
+part of preparing it. Before merge, explicitly clone its branch over HTTPS into
+`~/.antix` and run `bash ~/.antix/bootstrap.sh`; the master installer still uses
+master. Updates intentionally require clean master.
+
+Published fresh VM test (normal user in native Android Terminal Debian):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kacpersledz/antix/master/install.sh | bash
 ```
 
-If bootstrap stops because `nix-users` membership is inactive, log out and back
-in or restart the VM, then:
+Expected first run:
+- Install Debian Nix packages if needed.
+- Configure/start nix-daemon.
+- Add droid to nix-users.
+- Stop cleanly if new group membership requires session/VM restart.
+
+After restart:
 
 ```sh
 bash ~/.antix/bootstrap.sh
 ```
 
-The Antix public age recipient and SOPS-encrypted SSH payload are already
-committed in this PR. Before testing SSH recovery, ensure the dedicated
-`github-ssh.pub` created during enrollment is registered in GitHub. At the hidden
-prompt, paste the Antix identity from Bitwarden. Then:
+Expected:
+- NO Bitwarden prompt.
+- NO secret recovery.
+- NO Codex.
+- NO shpool.
+- NO large Rust/Go/compiler source build.
+- Home Manager activation succeeds.
+- Android Terminal remains responsive.
+- Zsh is installed/usable.
+- Git identity is correct.
+
+Verification (use a new login for the shell/profile change):
 
 ```sh
-antix-doctor
+which nix
 nix --version
-antix-rebuild
-bash ~/.antix/bootstrap.sh
-ssh -T git@github.com
-git -C ~/.antix remote -v
-antix-codex
+which zsh
+zsh --version
+git config --global user.name
+git config --global user.email
+git -C ~/.antix remote get-url origin
+du -sh /nix/store
 ```
 
-Confirm bootstrap/rebuild can rerun without damaging existing credentials or
-mutable `~/.codex`. Close the Terminal UI while Codex is running, reopen it and
-run `antix-codex` again; confirm it reattaches to the same process. VM reboot or
-wipe necessarily ends that process.
+Expected Git identity: `kacpersledz` / `casper.sledx@gmail.com`.
+Expected Git remote:
 
-Check `stat -c '%a' ~/.config/sops/age ~/.config/sops/age/keys.txt` reports 700 and
-600. Check the resolved runtime SSH secret has mode 400. Do not print its contents.
-Test `antix-update` on a clean `master`, then verify it refuses a dirty checkout
-without losing local edits. Existing conflicting dotfiles must stop Home Manager
-activation without overwriting them. Finally wipe/recreate the disposable VM
-and repeat the one-command recovery to validate the published enrollment.
+```text
+https://github.com/kacpersledz/antix.git
+```
 
-Before merge, test the PR branch explicitly rather than the `master` installer:
-clone the PR branch over public HTTPS into `~/.antix` and run
-`bash ~/.antix/bootstrap.sh`. `antix-update` intentionally refuses non-master
-branches; switch to `master` after the PR is merged and your checkout is clean.
+Nix should be Debian's `/usr/bin/nix`; Zsh should be
+`~/.nix-profile/bin/zsh`. `which` is a host verification tool, not an HM package.
+Record store size, install duration and responsiveness. Rerun bootstrap and
+`bash ~/.antix/commands/antix-rebuild.sh` to verify idempotency. Confirm unmanaged
+Nix config entries survive and conflicting dotfiles stop activation without
+being overwritten. On clean master, test update, then confirm it refuses a dirty
+checkout without losing edits.
+
+Inspect ARM64 CI dry-run/build logs before declaring readiness: only tiny
+generated local derivations are acceptable, with no heavyweight toolchain source
+builds. CI success does not replace this fresh-device responsiveness test.
+Encrypted enrollment files remain preserved; these features will be reintroduced
+incrementally after the baseline passes.

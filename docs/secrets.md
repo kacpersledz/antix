@@ -1,3 +1,6 @@
+> Experimental minimal baseline: this workflow is preserved for future use.
+> Bootstrap does not recover secrets, install its tools, or configure GitHub SSH.
+
 # Antix secrets and recovery
 
 Antix has its own age identity and Ed25519 GitHub SSH key. Bitwarden contains

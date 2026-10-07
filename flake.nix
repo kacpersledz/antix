@@ -1,25 +1,17 @@
 {
-  description = "Antix: disposable Android Debian development environment";
+  description = "Antix: experimental minimal Android Debian Nix baseline";
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/7fc6f2c20af09cdcaf48b92ec3121860139ec668";
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
-    sops-nix.url = "github:Mic92/sops-nix";
-    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
-  outputs = inputs@{ nixpkgs, home-manager, sops-nix, ... }:
+  outputs = { nixpkgs, home-manager, ... }:
     let
-      system = "aarch64-linux";
-      pkgs = import nixpkgs { inherit system; };
-      unstablePkgs = import inputs.nixpkgs-unstable { inherit system; };
-      commands = import ./commands { inherit pkgs; };
+      pkgs = import nixpkgs { system = "aarch64-linux"; };
     in {
-      packages.${system} = commands;
       homeConfigurations.antix = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
-        extraSpecialArgs = { inherit unstablePkgs commands; };
-        modules = [ sops-nix.homeManagerModules.sops ./home ];
+        modules = [ ./home ];
       };
     };
 }

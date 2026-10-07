@@ -1,4 +1,4 @@
-{ config, lib, commands, ... }:
+{ config, lib, ... }:
 let
   user = builtins.getEnv "ANTIX_USER";
   home = builtins.getEnv "ANTIX_HOME";
@@ -11,12 +11,12 @@ let
   '';
 in {
   assertions = [ { assertion = user != "" && home != ""; message = "Use antix-rebuild to supply the non-secret Debian user/home parameters."; } ];
-  imports = [ ./zsh.nix ./development.nix ./git-ssh.nix ];
+  imports = [ ./zsh.nix ./git.nix ];
   home.username = user;
   home.homeDirectory = home;
   home.stateVersion = "26.05";
-  home.packages = builtins.attrValues commands;
-  programs.home-manager.enable = true;
+  home.packages = [ ];
+  programs.home-manager.enable = false;
   targets.genericLinux.enable = true;
   nix.package = null;
   home.sessionPath = [ "${config.home.profileDirectory}/bin" ];
@@ -26,5 +26,4 @@ in {
   programs.bash.initExtra = lib.mkForce (debianNixProfile + ''
     . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
   '');
-  systemd.user.startServices = "sd-switch";
 }
