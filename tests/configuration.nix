@@ -3,6 +3,7 @@ let
   gitModule = import ../home/git.nix { };
   home = import ../home/default.nix {
     config.home.profileDirectory = "/home/antix-test/.nix-profile";
+    pkgs = builtins.listToAttrs (map (name: { inherit name; value = name; }) [ "git" "curl" "jq" "ripgrep" "fd" "fzf" "zsh" "less" "unzip" "zip" "tree" "file" "which" ]);
     lib.mkForce = value: value;
   };
 in
@@ -10,7 +11,8 @@ assert gitModule.programs.git.settings.user == {
   name = "kacpersledz";
   email = "casper.sledx@gmail.com";
 };
-assert home.home.packages == [ ];
+assert home.home.packages == [ "git" "curl" "jq" "ripgrep" "fd" "fzf" "zsh" "less" "unzip" "zip" "tree" "file" "which" ];
+assert import ../commands { } == { };
 assert home.programs.home-manager.enable == false;
 assert home.imports == [ ../home/zsh.nix ../home/git.nix ];
 assert home.nix.package == null;

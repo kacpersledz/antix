@@ -9,8 +9,6 @@ REPO = Path(__file__).resolve().parents[1]
 SETTINGS = '''experimental-features = nix-command flakes
 max-jobs = 1
 cores = 1
-max-substitution-jobs = 2
-http-connections = 4
 '''
 
 
@@ -70,6 +68,23 @@ class Baseline(unittest.TestCase):
         self.assertNotIn('apt-get install -y age', calls)
         self.assertNotIn('Bitwarden', result.stdout+result.stderr)
 
+    def test_minimal_config_migration(self):
+        config = self.home/'.config/nix'
+        config.mkdir(parents=True)
+        (config/'antix.conf').write_text(SETTINGS + 'max-substitution-jobs = 2\nhttp-connections = 4\n')
+        for _ in range(2):
+            result = self.run_bootstrap()
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((config/'antix.conf').read_text(), SETTINGS)
+
+    def test_wrappers_disabled_and_deferred_inputs_absent(self):
+        self.assertIn('{ ... }: { }', (REPO/'commands/default.nix').read_text())
+        active = (REPO/'flake.nix').read_text() + (REPO/'home/default.nix').read_text()
+        for forbidden in ('sops-nix', 'unstable', 'shpool', 'codex', 'openssh'):
+            self.assertNotIn(forbidden, active)
+        self.assertIn('programs.zsh.envExtra', active)
+        self.assertNotIn('.codex', active)
+
     def test_group_boundary_stops_before_activation(self):
         self.mock('id', 'case "$1" in -u) echo 1000 ;; -un) echo droid ;; -nG) echo droid ;; esac')
         result = self.run_bootstrap()
@@ -105,9 +120,12 @@ class Baseline(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(target.read_text(), 'do not overwrite\n')
                 path.unlink()
+        before = (config/'nix.conf').read_text() if (config/'nix.conf').exists() else None
         (config/'antix.conf').write_text('unexpected = true\n')
         self.assertNotEqual(self.run_bootstrap().returncode, 0)
         self.assertEqual((config/'antix.conf').read_text(), 'unexpected = true\n')
+        after = (config/'nix.conf').read_text() if (config/'nix.conf').exists() else None
+        self.assertEqual(before, after)
         self.assertNotIn('activation', self.log.read_text())
 
     def test_rebuild_uses_runtime_identity_and_direct_activation(self):

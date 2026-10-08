@@ -1,6 +1,7 @@
-# Minimal Android Terminal acceptance test
+# Stage A Android 17 Terminal acceptance test
 
-This is an experimental minimal baseline. Before publishing a new baseline,
+This is the restored baseline; test only on a fresh native Debian ARM64 VM.
+Do not repair or remotely modify the previously corrupted VM. Before publishing a new baseline,
 testing the PR branch directly on Android is preferred. After merge, use the
 normal `master` installer for fresh-device acceptance testing. Updates
 intentionally require clean `master`.
@@ -39,7 +40,7 @@ Verification (use a new login for the shell/profile change):
 ```sh
 which nix
 nix --version
-which zsh
+command -v zsh
 zsh --version
 git config --global user.name
 git config --global user.email
@@ -55,7 +56,7 @@ https://github.com/kacpersledz/antix.git
 ```
 
 Nix should be Debian's `/usr/bin/nix`; Zsh should be
-`~/.nix-profile/bin/zsh`. `which` is a host verification tool, not an HM package.
+`~/.nix-profile/bin/zsh`. `which` is included in the stable CLI bundle.
 Record store size, install duration and responsiveness. Rerun bootstrap and
 `bash ~/.antix/commands/antix-rebuild.sh` to verify idempotency. Confirm unmanaged
 Nix config entries survive and conflicting dotfiles stop activation without
@@ -67,3 +68,31 @@ generated local derivations are acceptable, with no heavyweight toolchain source
 builds. CI success does not replace this fresh-device responsiveness test.
 Encrypted enrollment files remain preserved; these features will be reintroduced
 incrementally after the baseline passes.
+
+Before merge, test the feature branch on a fresh VM with:
+
+```sh
+git clone --branch restore-stage-a https://github.com/kacpersledz/antix.git ~/.antix
+bash ~/.antix/bootstrap.sh
+# If instructed, log out/restart, then rerun bootstrap.
+# After successful activation, close the session and open a fresh Debian login.
+command -v zsh
+zsh --version
+for tool in git curl jq rg fd fzf zsh less unzip zip tree file which; do command -v "$tool" || break; done
+bash ~/.antix/commands/antix-doctor.sh
+bash ~/.antix/bootstrap.sh
+bash ~/.antix/commands/antix-rebuild.sh
+```
+
+Zsh must resolve through the Home Manager profile with a clean login PATH.
+If Android resumes an existing shell instead of starting a login, close/reopen
+that session or run `exec ~/.nix-profile/bin/zsh -l`; changing `/etc/passwd`
+alone does not initialize PATH. Bash login dotfiles remain untouched. If login-shell switching fails, source
+`/usr/share/doc/nix-bin/examples/nix.sh` in the current Bash session and start
+`~/.nix-profile/bin/zsh -l`. Review Zsh conflicts manually rather than deleting
+them automatically.
+Feature-branch update intentionally refuses operation; use rebuild there.
+
+Record actual CI local derivations, closure size, activation duration, VM
+responsiveness, and repeated-run results. No ARM64 build or Android compatibility
+claim should be made until those respective checks run successfully.

@@ -1,4 +1,4 @@
-name: Minimal baseline checks
+name: Stage A checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -27,9 +27,10 @@ jobs:
             experimental-features = nix-command flakes
             max-jobs = 1
             cores = 1
-            max-substitution-jobs = 2
-            http-connections = 4
         run: |
+          # Isolate activation from runner dotfiles without overwriting conflicts.
+          export HOME="$RUNNER_TEMP/antix-home"
+          mkdir -p "$HOME"
           export ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME"
           sg nix-users -c 'nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath'
           sg nix-users -c 'nix eval --json --file tests/configuration.nix'
@@ -47,13 +48,22 @@ jobs:
                   building = False
               elif building and line.strip().endswith('.drv'):
                   local_builds.append(line.strip())
-          heavy = re.compile(r'-(rustc|cargo|go(?:-|[0-9])|clang|cmake|codex|sops-install-secrets)|-go-modules')
+          heavy = re.compile(r'-(rustc|cargo|go(?:-|[0-9])|clang|cmake|gcc|g\+\+|llvm|codex|sops-install-secrets)|-go-modules')
           unexpected = [path for path in local_builds if heavy.search(Path(path).name)]
           if unexpected:
               raise SystemExit('Investigate heavyweight local builds:\n' + '\n'.join(unexpected))
           print('Local derivations inspected:', len(local_builds))
           PYTHON
-          sg nix-users -c 'nix build --impure --no-update-lock-file --no-link .#homeConfigurations.antix.activationPackage' 2>&1 | tee build.log
+          sg nix-users -c 'nix build --impure --no-update-lock-file --no-link --print-out-paths .#homeConfigurations.antix.activationPackage' > activation-path.txt 2> >(tee build.log >&2)
+          activation=$(cat activation-path.txt)
+          sg nix-users -c "nix-store -qR '$activation'" | tee runtime-closure.log
+          python3 tests/check_closure.py runtime-closure.log
+          sg nix-users -c "nix path-info --closure-size '$activation'" | tee closure-size.log
+          # Test actual HM-generated Zsh startup, independently of inherited PATH.
+          # Use the configured home so HM's absolute session-variable paths agree.
+          sg nix-users -c "'$activation/activate'"
+          env -i HOME="$HOME" USER="$(id -un)" PATH=/usr/bin:/bin "$HOME/.nix-profile/bin/zsh" -lc 'command -v zsh; zsh --version'
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -61,3 +71,6 @@ jobs:
           path: |
             build-plan.log
             build.log
+            runtime-closure.log
+            closure-size.log
+            activation-path.txt

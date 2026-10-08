@@ -1,10 +1,9 @@
 # Antix
 
-Antix is an **experimental minimal Android Nix/Home Manager baseline** for the
-native Android Terminal aarch64 Debian VM. The full V1 realization attempted
-heavy local builds, including `sops-install-secrets-0.0.1-go-modules`, and made
-the VM effectively unusable. This experiment asks whether Debian Nix and a very
-small Home Manager environment can install reliably on a fresh VM.
+Antix Stage A restores the useful V1 development baseline for a fresh native
+Android 17 Terminal Debian ARM64 VM. It uses Debian's Nix daemon and standalone
+Home Manager with stable, pinned nixpkgs. Android runtime acceptance remains a
+separate fresh-VM test; CI alone does not establish compatibility.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kacpersledz/antix/master/install.sh | bash
@@ -23,17 +22,19 @@ bash ~/.antix/bootstrap.sh
 The baseline retains standalone Home Manager activation, generic Linux support,
 Debian's `/usr/share/doc/nix-bin/examples/nix.sh` profile hook (`nix.package = null`),
 and the non-secret `ANTIX_USER` / `ANTIX_HOME` runtime identity parameters.
-It installs Git with author `kacpersledz` / `casper.sledx@gmail.com`, and Zsh with
+It installs git, curl, jq, ripgrep, fd, fzf, zsh, less, unzip, zip, tree, file
+and which from stable nixpkgs. Git uses author `kacpersledz` / `casper.sledx@gmail.com`, and Zsh with
 completion, autosuggestions, syntax highlighting, oh-my-zsh's `clean` theme and
 `git` plugin. Optional `~/.config/zsh/local.zsh` extensions remain supported.
-Bootstrap attempts to set `~/.nix-profile/bin/zsh` as the login shell. Existing
-conflicting dotfiles stop activation for manual review.
+Bootstrap attempts to set `~/.nix-profile/bin/zsh` as the login shell. Home Manager manages Zsh's `.zshenv` so the
+profile bin directory is available even when Android launches Zsh directly.
+Existing conflicting dotfiles stop activation for manual review; bootstrap does
+not overwrite unrelated login configuration. `~/.codex` remains unmanaged.
+Node and JDK belong in project environments.
 
-Temporarily absent from automatic installation: **Codex, shpool, GitHub SSH
-recovery, sops-nix, and the developer CLI bundle** (including age/SOPS/OpenSSH,
-ripgrep/fd/fzf and convenience tools). There is no Bitwarden prompt, decryption,
-SSH authentication attempt, or remote switching. Fresh checkouts retain
-`https://github.com/kacpersledz/antix.git`.
+Deliberately deferred: **Age, SOPS, OpenSSH, GitHub SSH recovery, sops-nix,
+Codex and shpool**. There is no Bitwarden prompt, decryption, SSH authentication
+attempt, or remote switching. Fresh checkouts retain HTTPS remotes.
 
 The encrypted enrollment material `.sops.yaml` and
 `secrets/github-ssh-key.yaml` remains preserved and untouched. Private Age keys
@@ -65,12 +66,10 @@ with these conservative settings, also used by ARM64 CI:
 experimental-features = nix-command flakes
 max-jobs = 1
 cores = 1
-max-substitution-jobs = 2
-http-connections = 4
 ```
 
 Bootstrap refuses symlinked configs and unexpected managed content, permits
-migration from the previous one-line config, and preserves user config entries.
+migration from V1’s one-line config and the minimal baseline’s five-line config, and preserves user config entries.
 Unexpected local builds cannot use all VM CPUs.
 
 Validation:
@@ -94,6 +93,11 @@ cmake, Codex or sops-install-secrets source builds require investigation.
 A passing ARM64 build is required before considering the PR ready.
 See [Android acceptance testing](docs/android-testing.md) for the fresh VM test.
 
-Features will return incrementally only after this baseline is validated:
-baseline → small CLI tools → ripgrep/fd/fzf → age/sops/openssh → Antix-native
-secret decryption → shpool → lightweight Codex installation.
+Acceptance stages are independent: **A** restored baseline (this PR), **B**
+Age/SOPS/OpenSSH and direct SSH recovery, **C** shpool disconnect/reattach tests,
+**D** Codex with separate ARM64 cache/closure/build review. The retained
+`antix-codex` script is inactive until C/D; command wrappers export no packages.
+
+No bootstrap operation deletes store objects, runs garbage collection, wipes
+profiles, or repairs corruption. Zero-byte store files require diagnosis or a
+fresh VM, not dotfile-conflict handling.

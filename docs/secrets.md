@@ -1,4 +1,4 @@
-> Experimental minimal baseline: this workflow is preserved for future use.
+> Stage A restored baseline: this workflow is preserved for future use.
 > Bootstrap does not recover secrets, install its tools, or configure GitHub SSH.
 
 # Antix secrets and recovery
@@ -126,3 +126,12 @@ install the new identity deliberately, update the public recipient, then enroll.
 Register and test the replacement before revoking old GitHub access. Commit and
 publish only the public recipient and encrypted payload. Restore from Bitwarden
 on a fresh disposable VM to verify the full recovery chain.
+
+## Later Stage B recovery design
+
+Preserve the existing enrolled recipient and ciphertext. A separate PR will
+recover the Bitwarden Age identity, decrypt directly with SOPS during bootstrap,
+install `~/.ssh/antix_github_ed25519`, validate GitHub authentication, and only
+then optionally switch the remote to SSH. This replaces the historical sops-nix
+service; Stage A creates no service and performs none of these steps. The
+retained helper scripts require manually supplied deferred dependencies.
