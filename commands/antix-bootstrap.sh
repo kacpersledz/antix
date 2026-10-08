@@ -75,9 +75,19 @@ touch "$conf"
 line='!include antix.conf'
 grep -Fxq "$line" "$conf" || printf '\n%s\n' "$line" >> "$conf"
 if [[ " $(id -nG) " != *' nix-users '* ]]; then
-  die 'nix-users membership is not active. Log out of the Debian session and log back in (or restart the VM), then run: bash ~/.antix/bootstrap.sh'
+  # usermod updated /etc/group, but this shell still has its old credentials.
+  # sg creates a single child process with nix-users active, without requiring
+  # a VM restart or giving the Home Manager build root privileges.
+  command -v sg >/dev/null || die 'The Debian sg utility is required to activate nix-users without logging out.'
+  printf 'Activating Home Manager with the new nix-users group (no VM restart needed).\n'
+  export ANTIX_PATH="$repo"
+  # ANTIX_PATH is deliberately expanded in sg's child shell, not here.
+  # shellcheck disable=SC2016
+  sg nix-users -c 'exec bash "$ANTIX_PATH/commands/antix-rebuild.sh"' ||
+    die 'Could not rebuild as nix-users. Verify group membership with: getent group nix-users'
+else
+  bash "$repo/commands/antix-rebuild.sh"
 fi
-bash "$repo/commands/antix-rebuild.sh"
 export PATH="$HOME/.nix-profile/bin:$PATH"
 shell=$HOME/.nix-profile/bin/zsh
 if [[ -x $shell && $(getent passwd "$(id -un)" | cut -d: -f7) != "$shell" ]]; then

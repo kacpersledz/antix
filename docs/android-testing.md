@@ -16,13 +16,11 @@ Expected first run:
 - Install Debian Nix packages if needed.
 - Configure/start nix-daemon.
 - Add droid to nix-users.
-- Stop cleanly if new group membership requires session/VM restart.
+- Use `sg nix-users` automatically if the current login has stale group membership.
 
-After restart:
-
-```sh
-bash ~/.antix/bootstrap.sh
-```
+After installation, open a fresh terminal to pick up the configured Zsh login
+shell. No manual VM restart or second bootstrap run is required for `nix-users`.
+Re-running `bash ~/.antix/bootstrap.sh` remains supported as an idempotency test.
 
 Expected:
 - NO Bitwarden prompt.
@@ -115,5 +113,5 @@ service may become active again on demand after the connection check. Re-running
 bootstrap must not stop the daemon when the socket is already healthy. Do not
 wipe the Nix store because of the APT warning alone.
 
-After the expected `nix-users` login-group restart, resume with
-`bash ~/.antix/bootstrap.sh`.
+Fresh installs use `sg nix-users` for the rebuild while the login group is
+stale; no VM restart is necessary to complete Stage A.
