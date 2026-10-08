@@ -160,13 +160,31 @@ esac""")
         self.assertIn('programs.zsh.envExtra', active)
         self.assertNotIn('.codex', active)
 
-    def test_group_boundary_stops_before_activation(self):
+    def test_first_run_activates_group_without_relogin(self):
         self.mock('id', 'case "$1" in -u) echo 1000 ;; -un) echo droid ;; -nG) echo droid ;; esac')
+        self.mock('sg', """printf 'sg %s\\n' "$*" >> "$CALLS"
+[ "$1" = nix-users ] && [ "$2" = -c ] || exit 22
+ANTIX_PATH="$ANTIX_PATH" bash "$ANTIX_PATH/commands/antix-rebuild.sh" """)
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.log.read_text()
+        self.assertIn("sg nix-users -c exec bash", calls)
+        self.assertIn('activation', calls)
+        self.assertEqual((self.home/'.config/nix/antix.conf').read_text(), SETTINGS)
+
+    def test_first_run_group_switch_failure_stops_activation(self):
+        self.mock('id', 'case "$1" in -u) echo 1000 ;; -un) echo droid ;; -nG) echo droid ;; esac')
+        self.mock('sg', 'exit 31')
         result = self.run_bootstrap()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('membership is not active', result.stderr)
+        self.assertIn('Could not rebuild as nix-users', result.stderr)
         self.assertNotIn('activation', self.log.read_text())
-        self.assertEqual((self.home/'.config/nix/antix.conf').read_text(), SETTINGS)
+
+    def test_existing_membership_does_not_use_sg(self):
+        self.mock('sg', 'exit 31')
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('activation', self.log.read_text())
 
     def test_root_and_wrong_architecture_refused(self):
         for name, body, message in [('id', 'echo 0', 'normal non-root'),
