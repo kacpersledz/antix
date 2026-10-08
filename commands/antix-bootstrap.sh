@@ -105,6 +105,8 @@ install_shell_hook() {
   if [[ -f $target ]] && grep -Fqx "$end" "$target"; then
     die "Unexpected Antix startup hook marker in $target"
   fi
+  # The literal $HOME expands when the startup file is sourced, not now.
+  # shellcheck disable=SC2016
   printf '\n%s\n. "$HOME/.antix/commands/antix-shell-init.sh"\n%s\n' \
     "$begin" "$end" >> "$target"
 }
