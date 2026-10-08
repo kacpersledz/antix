@@ -14,8 +14,7 @@ checks the platform, and clones clean `master` into `~/.antix`. Bootstrap instal
 Debian `nix-bin` and `nix-setup-systemd`, enables the daemon, and adds the user to
 `nix-users`. If the freshly added `nix-users` membership is not active in the current
 login, bootstrap runs the Home Manager rebuild through `sg nix-users` as the
-same unprivileged user. **No VM restart is required for installation.** Opening
-a fresh terminal afterward applies the login-shell change.
+same unprivileged user. **No VM restart is required for installation.** Opening a fresh Android Terminal session after installation automatically enters Home Manager Zsh via an idempotent Bash startup hook (even if Android launches Bash directly).
 
 The baseline retains standalone Home Manager activation, generic Linux support,
 Debian's `/usr/share/doc/nix-bin/examples/nix.sh` profile hook (`nix.package = null`),
@@ -26,8 +25,7 @@ completion, autosuggestions, syntax highlighting, oh-my-zsh's `clean` theme and
 `git` plugin. Optional `~/.config/zsh/local.zsh` extensions remain supported.
 Bootstrap attempts to set `~/.nix-profile/bin/zsh` as the login shell. Home Manager manages Zsh's `.zshenv` so the
 profile bin directory is available even when Android launches Zsh directly.
-Existing conflicting dotfiles stop activation for manual review; bootstrap does
-not overwrite unrelated login configuration. `~/.codex` remains unmanaged.
+Bootstrap preserves existing Bash startup files and appends a marked hook to the active login file and ~/.bashrc. The hook only switches interactive terminal sessions; scripts remain Bash. Set `ANTIX_KEEP_BASH=1` before starting Bash to opt out. Symlinked or non-regular Bash startup files are refused for manual review. `~/.codex` remains unmanaged.
 Node and JDK belong in project environments.
 
 Deliberately deferred: **Age, SOPS, OpenSSH, GitHub SSH recovery, sops-nix,
