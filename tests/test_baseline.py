@@ -68,6 +68,40 @@ class Baseline(unittest.TestCase):
         self.assertNotIn('apt-get install -y age', calls)
         self.assertNotIn('Bitwarden', result.stdout+result.stderr)
 
+    def test_shell_hooks_idempotent_and_preserve_existing_bash_files(self):
+        (self.home/'.profile').write_text('export EXISTING_PROFILE=1\n')
+        (self.home/'.bashrc').write_text('export EXISTING_BASHRC=1\n')
+        for _ in range(2):
+            result = self.run_bootstrap()
+            self.assertEqual(result.returncode, 0, result.stderr)
+        for name, original in (('.profile', 'EXISTING_PROFILE'), ('.bashrc', 'EXISTING_BASHRC')):
+            content = (self.home/name).read_text()
+            self.assertIn(original, content)
+            self.assertEqual(content.count('# >>> antix-shell-init >>>'), 1)
+            self.assertEqual(content.count('antix-shell-init.sh'), 1)
+
+    def test_bash_login_priority_and_symlink_safety(self):
+        (self.home/'.bash_profile').write_text('export PRIORITY=1\n')
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('antix-shell-init.sh', (self.home/'.bash_profile').read_text())
+        self.assertFalse((self.home/'.profile').exists())
+        target = self.root/'existing-config'
+        target.write_text('unchanged\n')
+        (self.home/'.bashrc').unlink()
+        (self.home/'.bashrc').symlink_to(target)
+        result = self.run_bootstrap()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Refusing non-regular or symlinked', result.stderr)
+        self.assertEqual(target.read_text(), 'unchanged\n')
+
+    def test_shell_init_skips_noninteractive_bash(self):
+        result = subprocess.run(['bash', '-c', '. "$1"; printf "continued\\n"',
+                                 '_', str(REPO/'commands/antix-shell-init.sh')],
+                                env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, 'continued\n')
+
     def test_socket_activation_only(self):
         result = self.run_bootstrap()
         self.assertEqual(result.returncode, 0, result.stderr)
