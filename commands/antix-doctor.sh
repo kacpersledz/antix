@@ -15,13 +15,23 @@ check architecture test "$(uname -m)" = aarch64
 check Debian bash -c '. /etc/os-release; [[ " $ID ${ID_LIKE:-} " == *" debian "* ]]'
 check Nix command -v nix
 if command -v nix >/dev/null; then nix --version; fi
-check nix-daemon systemctl is-active nix-daemon.service
+check 'nix-daemon socket/service' bash -c 'systemctl is-active --quiet nix-daemon.socket || systemctl is-active --quiet nix-daemon.service'
+check 'Nix daemon connection' nix --extra-experimental-features nix-command store ping --store daemon
 check nix-command/flakes bash -c 'nix config show --json | jq -e '\''."experimental-features".value | (index("nix-command") != null and index("flakes") != null)'\'''
 check nix-users bash -c '[[ " $(id -nG) " == *" nix-users "* ]]'
 check 'Home Manager activation' test -x "$HOME/.nix-profile/bin/zsh"
 check 'Antix HTTPS remote' bash -c '[[ $(git -C "$1" remote get-url origin) == https://github.com/kacpersledz/antix.git ]]' _ "$repo"
 for tool in git curl jq rg fd fzf zsh less unzip zip tree file which; do check "$tool" command -v "$tool"; done
 check 'Zsh runtime' zsh --version
+source "$repo/commands/zsh-checks.sh"
+# Preserve integrity diagnostics rather than hiding hash failures.
+if zsh_artifact_check "$HOME"; then
+  printf 'PASS generated Zsh integrity/content\n'
+else
+  printf 'FAIL generated Zsh integrity/content (run antix-rebuild for bounded repair)\n'
+  failures=$((failures+1))
+fi
+check 'interactive Oh My Zsh (clean/git)' zsh_runtime_check
 printf 'DEFERRED SSH recovery, age/SOPS/OpenSSH, shpool and Codex (Stages B-D)\n'
 check 'Git author identity' bash -c '[[ -n $(git config --get user.name) && -n $(git config --get user.email) ]]'
 (( failures == 0 ))

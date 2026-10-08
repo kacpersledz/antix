@@ -126,4 +126,4 @@ if [[ -x $shell && $(getent passwd "$(id -un)" | cut -d: -f7) != "$shell" ]]; th
   grep -Fxq "$shell" /etc/shells || printf '%s\n' "$shell" | sudo tee -a /etc/shells >/dev/null
   sudo chsh -s "$shell" "$(id -un)" || printf 'Could not change login shell; run zsh manually.\n'
 fi
-printf 'Stage A activated. Start a fresh login and verify: command -v zsh; zsh --version. Git remains on HTTPS.\n'
+printf 'Stage A activated with verified interactive Oh My Zsh (clean theme, git plugin). Start a fresh login. Git remains on HTTPS.\n'
