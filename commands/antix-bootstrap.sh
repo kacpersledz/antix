@@ -81,6 +81,8 @@ if [[ " $(id -nG) " != *' nix-users '* ]]; then
   command -v sg >/dev/null || die 'The Debian sg utility is required to activate nix-users without logging out.'
   printf 'Activating Home Manager with the new nix-users group (no VM restart needed).\n'
   export ANTIX_PATH="$repo"
+  # ANTIX_PATH is deliberately expanded in sg's child shell, not here.
+  # shellcheck disable=SC2016
   sg nix-users -c 'exec bash "$ANTIX_PATH/commands/antix-rebuild.sh"' ||
     die 'Could not rebuild as nix-users. Verify group membership with: getent group nix-users'
 else
