@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 let
   user = builtins.getEnv "ANTIX_USER";
   home = builtins.getEnv "ANTIX_HOME";
@@ -15,7 +15,7 @@ in {
   home.username = user;
   home.homeDirectory = home;
   home.stateVersion = "26.05";
-  home.packages = [ ];
+  home.packages = with pkgs; [ git curl jq ripgrep fd fzf zsh less unzip zip tree file which ];
   programs.home-manager.enable = false;
   targets.genericLinux.enable = true;
   # This terminal baseline needs no GPU integration, desktop MIME tools or manuals.
@@ -30,6 +30,11 @@ in {
   home.sessionVariablesExtra = lib.mkForce (debianNixProfile + ''
     export TERM="$TERM"
   '');
+  # Zsh reads .zshenv even before login/interactive initialization. This also
+  # covers Android Terminal sessions that launch the selected shell directly.
+  programs.zsh.envExtra = ''
+    export PATH="${config.home.profileDirectory}/bin:$PATH"
+  '';
   programs.bash.initExtra = lib.mkForce (debianNixProfile + ''
     . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
   '');

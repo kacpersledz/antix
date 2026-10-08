@@ -1,5 +1,5 @@
 {
-  description = "Antix: experimental minimal Android Debian Nix baseline";
+  description = "Antix: Stage A Android Debian development baseline";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/7fc6f2c20af09cdcaf48b92ec3121860139ec668";
     home-manager.url = "github:nix-community/home-manager/release-26.05";

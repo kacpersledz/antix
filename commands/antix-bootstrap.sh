@@ -17,25 +17,27 @@ sudo usermod -aG nix-users "$(id -un)"
 mkdir -p "$HOME/.config/nix"
 conf=$HOME/.config/nix/nix.conf
 [[ ! -L $conf ]] || die 'Refusing symlinked nix.conf.'
-# Add a dedicated include without replacing the user's existing configuration.
-touch "$conf"
-line='!include antix.conf'
-grep -Fxq "$line" "$conf" || printf '\n%s\n' "$line" >> "$conf"
+# Validate managed content before changing either file.
 managed=$HOME/.config/nix/antix.conf
 settings='experimental-features = nix-command flakes
 max-jobs = 1
-cores = 1
+cores = 1'
+legacy="$settings
 max-substitution-jobs = 2
-http-connections = 4'
+http-connections = 4"
 if [[ -e $managed || -L $managed ]]; then
-  # Allow a safe migration from the previous one-line Antix configuration.
-  [[ ! -L $managed ]] || die 'Refusing symlinked antix.conf.'
+  [[ ! -L $managed && -f $managed ]] || die 'Refusing symlinked or non-regular antix.conf.'
   existing=$(cat "$managed")
-  [[ $existing == "$settings" || $existing == 'experimental-features = nix-command flakes' ]] || die 'Unexpected existing antix.conf; review manually.'
+  [[ $existing == "$settings" || $existing == "$legacy" || $existing == 'experimental-features = nix-command flakes' ]] || die 'Unexpected existing antix.conf; review manually.'
 fi
+[[ ! -e $conf || -f $conf ]] || die 'Refusing non-regular nix.conf.'
 tmp=$(mktemp "$HOME/.config/nix/.antix.XXXXXX")
 printf '%s\n' "$settings" > "$tmp"
 mv "$tmp" "$managed"
+# Add a dedicated include without replacing unrelated user configuration.
+touch "$conf"
+line='!include antix.conf'
+grep -Fxq "$line" "$conf" || printf '\n%s\n' "$line" >> "$conf"
 if [[ " $(id -nG) " != *' nix-users '* ]]; then
   die 'nix-users membership is not active. Log out of the Debian session and log back in (or restart the VM), then run: bash ~/.antix/bootstrap.sh'
 fi
@@ -46,4 +48,4 @@ if [[ -x $shell && $(getent passwd "$(id -un)" | cut -d: -f7) != "$shell" ]]; th
   grep -Fxq "$shell" /etc/shells || printf '%s\n' "$shell" | sudo tee -a /etc/shells >/dev/null
   sudo chsh -s "$shell" "$(id -un)" || printf 'Could not change login shell; run zsh manually.\n'
 fi
-printf 'Minimal Antix baseline activated. A new login picks up Zsh; Git remains on HTTPS.\n'
+printf 'Stage A activated. Start a fresh login and verify: command -v zsh; zsh --version. Git remains on HTTPS.\n'

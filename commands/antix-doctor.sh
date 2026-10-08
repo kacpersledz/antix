@@ -18,11 +18,10 @@ if command -v nix >/dev/null; then nix --version; fi
 check nix-daemon systemctl is-active nix-daemon.service
 check nix-command/flakes bash -c 'nix config show --json | jq -e '\''."experimental-features".value | (index("nix-command") != null and index("flakes") != null)'\'''
 check nix-users bash -c '[[ " $(id -nG) " == *" nix-users "* ]]'
-check 'Home Manager' command -v home-manager
-check 'age identity / recipient match' identity_valid
-check 'sops-nix secret' test -r "$HOME/.config/sops-nix/secrets/antix-github-ssh"
-check 'GitHub SSH configuration' bash -c 'ssh -G github.com | grep -q "^identitiesonly yes$" && ssh -G github.com | grep -q "^user git$" && ssh -G github.com | grep -q "^identityfile .*antix-github-ssh$"'
-check 'Antix git remote' bash -c '[[ $(git -C "$1" remote get-url origin) == git@github.com:kacpersledz/antix.git ]]' _ "$repo"
-for tool in git zsh codex shpool; do check "$tool" command -v "$tool"; done
+check 'Home Manager activation' test -x "$HOME/.nix-profile/bin/zsh"
+check 'Antix HTTPS remote' bash -c '[[ $(git -C "$1" remote get-url origin) == https://github.com/kacpersledz/antix.git ]]' _ "$repo"
+for tool in git curl jq rg fd fzf zsh less unzip zip tree file which; do check "$tool" command -v "$tool"; done
+check 'Zsh runtime' zsh --version
+printf 'DEFERRED SSH recovery, age/SOPS/OpenSSH, shpool and Codex (Stages B-D)\n'
 check 'Git author identity' bash -c '[[ -n $(git config --get user.name) && -n $(git config --get user.email) ]]'
 (( failures == 0 ))
