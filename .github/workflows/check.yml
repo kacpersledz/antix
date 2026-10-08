@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y zsh
       - run: python3 -m unittest discover -s tests -v
       - run: shellcheck -e SC1090,SC1091 install.sh bootstrap.sh commands/*.sh
       - run: git diff --check
@@ -66,7 +67,8 @@ jobs:
           sg nix-users -c "nix path-info --closure-size '$activation'" | tee closure-size.log
           # Test actual HM-generated Zsh startup, independently of inherited PATH.
           # Use the configured home so HM's absolute session-variable paths agree.
-          sg nix-users -c "'$activation/activate'"
+          export ANTIX_PATH="$GITHUB_WORKSPACE"
+          sg nix-users -c 'bash "$ANTIX_PATH/commands/antix-rebuild.sh"' 2>&1 | tee zsh-verification.log
           env -i HOME="$HOME" USER="$(id -un)" PATH=/usr/bin:/bin "$HOME/.nix-profile/bin/zsh" -lc 'command -v zsh; zsh --version'
 
       - uses: actions/upload-artifact@v4
@@ -79,3 +81,4 @@ jobs:
             runtime-closure.log
             closure-size.log
             activation-path.txt
+            zsh-verification.log

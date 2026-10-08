@@ -1,6 +1,10 @@
 # Pure checks: inactive wrappers must never be imported into the HM profile.
 let
   gitModule = import ../home/git.nix { };
+  zsh = import ../home/zsh.nix {
+    config.home.homeDirectory = "/home/antix-test";
+    lib.mkAfter = value: value;
+  };
   home = import ../home/default.nix {
     config.home.profileDirectory = "/home/antix-test/.nix-profile";
     pkgs = builtins.listToAttrs (map (name: { inherit name; value = name; }) [ "git" "curl" "jq" "ripgrep" "fd" "fzf" "zsh" "less" "unzip" "zip" "tree" "file" "which" ]);
@@ -11,6 +15,9 @@ assert gitModule.programs.git.settings.user == {
   name = "kacpersledz";
   email = "casper.sledx@gmail.com";
 };
+assert zsh.programs.zsh.dotDir == "/home/antix-test";
+assert zsh.programs.zsh.oh-my-zsh.theme == "clean";
+assert zsh.programs.zsh.oh-my-zsh.plugins == [ "git" ];
 assert home.home.packages == [ "git" "curl" "jq" "ripgrep" "fd" "fzf" "zsh" "less" "unzip" "zip" "tree" "file" "which" ];
 assert import ../commands { } == { };
 assert home.programs.home-manager.enable == false;

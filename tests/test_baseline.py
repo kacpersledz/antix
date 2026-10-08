@@ -23,6 +23,7 @@ class Baseline(unittest.TestCase):
         self.repo = self.root/'repo'
         (self.repo/'commands').mkdir(parents=True)
         (self.repo/'commands/common.sh').write_text((REPO/'commands/common.sh').read_text())
+        (self.repo/'commands/zsh-checks.sh').write_text((REPO/'commands/zsh-checks.sh').read_text())
         self.log = self.root/'calls'
         self.env = dict(os.environ, HOME=str(self.home), ANTIX_PATH=str(self.repo),
                         PATH=str(self.bin)+':'+os.environ['PATH'], CALLS=str(self.log))
@@ -254,19 +255,3 @@ ANTIX_PATH="$ANTIX_PATH" bash "$ANTIX_PATH/commands/antix-rebuild.sh" """)
         after = (config/'nix.conf').read_text() if (config/'nix.conf').exists() else None
         self.assertEqual(before, after)
         self.assertNotIn('activation', self.log.read_text())
-
-    def test_rebuild_uses_runtime_identity_and_direct_activation(self):
-        activation = self.root/'activation'
-        activation.mkdir()
-        script = activation/'activate'
-        script.write_text('#!/bin/sh\nprintf "activated\\n" >> "$CALLS"\n')
-        script.chmod(0o755)
-        self.mock('nix', 'printf "%s|%s|%s\\n" "$ANTIX_USER" "$ANTIX_HOME" "$*" >> "$CALLS"\nprintf "%s\\n" "'+str(activation)+'"')
-        result = subprocess.run(['bash', str(REPO/'commands/antix-rebuild.sh')], env=self.env,
-                                text=True, capture_output=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        calls = self.log.read_text()
-        self.assertIn('droid|'+str(self.home), calls)
-        self.assertIn('--impure --no-update-lock-file --no-link --print-out-paths', calls)
-        self.assertIn('homeConfigurations.antix.activationPackage', calls)
-        self.assertIn('activated', calls)

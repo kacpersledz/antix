@@ -17,6 +17,7 @@ class Scripts(unittest.TestCase):
         self.repo = self.root / 'repo'
         (self.repo / 'commands').mkdir(parents=True)
         (self.repo / 'commands/common.sh').write_text((REPO/'commands/common.sh').read_text())
+        (self.repo/'commands/zsh-checks.sh').write_text((REPO/'commands/zsh-checks.sh').read_text())
         (self.repo / '.sops.yaml').write_text('creation_rules:\n  - path_regex: secrets/.*\n    age: age1test\n')
         self.bin = self.root / 'bin'
         self.bin.mkdir()

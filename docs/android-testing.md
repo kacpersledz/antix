@@ -1,7 +1,7 @@
 # Stage A Android 17 Terminal acceptance test
 
 This is the restored baseline; test only on a fresh native Debian ARM64 VM.
-Do not repair or remotely modify the previously corrupted VM. Before publishing a new baseline,
+Before publishing a new baseline,
 testing the PR branch directly on Android is preferred. After merge, use the
 normal `master` installer for fresh-device acceptance testing. Updates
 intentionally require clean `master`.
@@ -69,9 +69,8 @@ incrementally after the baseline passes.
 Before merge, test the feature branch on a fresh VM with:
 
 ```sh
-git clone --branch restore-stage-a https://github.com/kacpersledz/antix.git ~/.antix
+git clone --branch fix/zsh-store-integrity https://github.com/kacpersledz/antix.git ~/.antix
 bash ~/.antix/bootstrap.sh
-# If instructed, log out/restart, then rerun bootstrap.
 # After successful activation, close the session and open a fresh Debian login.
 command -v zsh
 zsh --version
@@ -84,7 +83,7 @@ bash ~/.antix/commands/antix-rebuild.sh
 Zsh must resolve through the Home Manager profile with a clean login PATH. Bootstrap appends a guarded startup hook to the active Bash login file and ~/.bashrc, preserving existing content. Interactive Bash switches to Zsh; noninteractive scripts are unchanged. Test opt-out with `ANTIX_KEEP_BASH=1 bash -i` and verify the installer is idempotent.
 If Android resumes an existing shell instead of starting a login, close/reopen
 that session or run `exec ~/.nix-profile/bin/zsh -l`; changing `/etc/passwd`
-alone does not initialize PATH. Bash login dotfiles remain untouched. If login-shell switching fails, source
+alone does not initialize PATH. Existing Bash login content is preserved. If login-shell switching fails, source
 `/usr/share/doc/nix-bin/examples/nix.sh` in the current Bash session and start
 `~/.nix-profile/bin/zsh -l`. Review Zsh conflicts manually rather than deleting
 them automatically.
@@ -114,3 +113,61 @@ wipe the Nix store because of the APT warning alone.
 
 Fresh installs use `sg nix-users` for the rebuild while the login group is
 stale; no VM restart is necessary to complete Stage A.
+
+## Zsh integrity and recovery
+
+A successful install now requires nonempty, hash-verified Home Manager-generated
+`.zshrc` and `.zshenv`, matching activated symlinks and an isolated interactive
+startup with Oh My Zsh's `clean` theme and `git` plugin. `programs.zsh.dotDir`
+is explicitly the configured home. Nix evaluation is not a substitute for these
+checks; noninteractive `zsh -lc` does not read `.zshrc`.
+
+On a generated-artifact failure, rebuild attempts one pinned activation-package
+`nix build --repair`, rechecks its outputs and activates the repaired generation.
+Nix 2.26's repair mode hashes the closure and redownloads/rebuilds corrupt or
+missing paths. An ordinary rebuild can reuse a corrupt registered output.
+There are no manual store writes, deletion, garbage collection or rebuild loops.
+Repair may require daemon authorization or available substitutes/build inputs;
+failure is reported and stops installation. If verification still fails, preserve
+the diagnostics: the underlying Nix store/runtime remains unreliable.
+
+Confirmed facts from the reported VM: `.zshrc` was zero bytes and failed Nix
+hash verification while evaluation was correct. Inspection found no repository
+writer to these store files; Bash hooks refuse symlinks. Android filesystem or
+Nix write failures remain hypotheses, not a demonstrated root cause. This patch
+detects and attempts recovery; it does not prevent underlying corruption.
+
+Copy-paste acceptance on a **fresh Android 17 native Debian ARM64 VM**, normal user:
+
+```sh
+set -e
+git clone --branch fix/zsh-store-integrity https://github.com/kacpersledz/antix.git ~/.antix
+bash ~/.antix/bootstrap.sh
+# Must print PASS interactive Zsh and verified integrity, with no secret prompts.
+for name in .zshrc .zshenv; do
+  test -L "$HOME/$name"
+  target=$(readlink -f "$HOME/$name")
+  test -s "$target"
+  nix-store --verify-path "$target"
+done
+grep -E 'plugins=|ZSH_THEME=|oh-my-zsh.sh' ~/.zshrc
+env -i HOME="$HOME" USER="$(id -un)" PATH=/usr/bin:/bin TERM="${TERM:-dumb}" \
+  "$HOME/.nix-profile/bin/zsh" -ic '
+    [[ $ZSH_THEME == clean && ${plugins[(Ie)git]} -gt 0 ]] || exit 1
+    (( $+functions[omz] && $+functions[git_prompt_info] )) || exit 1
+    print "PASS clean/git/omz"
+  '
+bash ~/.antix/commands/antix-doctor.sh
+bash ~/.antix/bootstrap.sh
+bash ~/.antix/commands/antix-rebuild.sh
+bash -c 'printf "PASS noninteractive Bash\n"'
+"$HOME/.nix-profile/bin/zsh" -c '(( $+functions[omz] == 0 )) && print "PASS noninteractive Zsh"'
+# Open a fresh Android Terminal session; expect Zsh and the clean prompt.
+```
+
+If doctor reports corruption, capture the resolved paths, byte sizes and
+`nix-store --verify-path` errors, then run the rebuild command above. Do not edit
+store files or deliberately corrupt the runner/VM to test repair. Regression
+tests mock Nix with temporary fixtures; ARM64 CI checks real generated outputs
+and interactive startup. Neither establishes Android runtime acceptance until
+this checklist passes on the fresh device.

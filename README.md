@@ -94,6 +94,27 @@ Age/SOPS/OpenSSH and direct SSH recovery, **C** shpool disconnect/reattach tests
 **D** Codex with separate ARM64 cache/closure/build review. The retained
 `antix-codex` script is inactive until C/D; command wrappers export no packages.
 
-No bootstrap operation deletes store objects, runs garbage collection, wipes
-profiles, or repairs corruption. Zero-byte store files require diagnosis or a
-fresh VM, not dotfile-conflict handling.
+Rebuild verifies the actual Home Manager-generated `.zshrc` and `.zshenv`
+with `nix-store --verify-path`, checks their expected content, and verifies the
+activated symlink targets. It then starts an isolated `zsh -ic` to confirm
+Oh My Zsh, the `clean` theme, the `git` plugin and the `omz` function.
+A correct Nix evaluation alone does not establish on-disk integrity.
+
+If generated artifacts fail verification, rebuild attempts **one**
+`nix build --repair` of the pinned activation package, checks again and activates
+the resulting generation. Nix 2.26 hashes the build closure and substitutes or
+rebuilds missing/corrupt paths; this can take longer than an ordinary rebuild.
+Permission/substitution/build failures or persistent corruption stop installation
+with a nonzero exit. An interactive startup failure also stops success reporting;
+inspect startup errors and optional `~/.config/zsh/local.zsh`.
+Doctor reports integrity and interactive startup failures and checks daemon
+connectivity with socket activation supported. Run
+`bash ~/.antix/commands/antix-rebuild.sh` for the bounded recovery path.
+
+No bootstrap operation manually writes into the store, deletes store objects,
+runs garbage collection or wipes profiles. Repository inspection found no code
+that truncates these generated store files. The reported zero-byte output and
+hash mismatch establish corruption, but its filesystem/Nix cause remains
+unconfirmed. Detection and repair do not prevent Android filesystem corruption.
+See the [fresh-VM checklist](docs/android-testing.md#zsh-integrity-and-recovery)
+for diagnosis and acceptance commands.
