@@ -12,12 +12,10 @@ curl -fsSL https://raw.githubusercontent.com/kacpersledz/antix/master/install.sh
 Run as the normal Debian user with working `sudo`. The installer uses HTTPS,
 checks the platform, and clones clean `master` into `~/.antix`. Bootstrap installs
 Debian `nix-bin` and `nix-setup-systemd`, enables the daemon, and adds the user to
-`nix-users`. If group membership is not active, it stops cleanly. Restart the
-session or VM, then resume:
-
-```sh
-bash ~/.antix/bootstrap.sh
-```
+`nix-users`. If the freshly added `nix-users` membership is not active in the current
+login, bootstrap runs the Home Manager rebuild through `sg nix-users` as the
+same unprivileged user. **No VM restart is required for installation.** Opening
+a fresh terminal afterward applies the login-shell change.
 
 The baseline retains standalone Home Manager activation, generic Linux support,
 Debian's `/usr/share/doc/nix-bin/examples/nix.sh` profile hook (`nix.package = null`),
