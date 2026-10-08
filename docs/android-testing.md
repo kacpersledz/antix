@@ -102,10 +102,18 @@ claim should be made until those respective checks run successfully.
 On a fresh Android Terminal Debian VM, `nix-setup-systemd` may print
 `Could not execute systemctl` or `Job failed` while APT configures packages.
 These messages do not, by themselves, establish that the socket remains down.
-Bootstrap reloads systemd, enables the Nix daemon socket, verifies its active
-state, and retries once before failing with unit status and journal output.
-It deliberately relies on systemd socket activation rather than eagerly starting
-the daemon service. Do not wipe the Nix store because of the APT warning alone.
+Bootstrap reloads systemd and disables independent nix-daemon.service
+autostart. If the daemon is already active while the socket is inactive (the
+observed fresh-VM race), bootstrap stops the daemon before enabling the socket.
+A healthy active socket is left running. If socket startup still fails, bootstrap
+retries after clearing the conflicting daemon state, reports systemd diagnostics,
+and stops before Home Manager activation. A successful socket state is followed
+by a real Nix daemon connection check.
+
+On a fresh VM, the expected result is an active nix-daemon.socket; the daemon
+service may become active again on demand after the connection check. Re-running
+bootstrap must not stop the daemon when the socket is already healthy. Do not
+wipe the Nix store because of the APT warning alone.
 
 After the expected `nix-users` login-group restart, resume with
 `bash ~/.antix/bootstrap.sh`.
