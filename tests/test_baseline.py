@@ -72,9 +72,52 @@ class Baseline(unittest.TestCase):
         result = self.run_bootstrap()
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = self.log.read_text()
+        self.assertIn('systemctl disable nix-daemon.service', calls)
         self.assertIn('systemctl enable --now nix-daemon.socket', calls)
+        self.assertIn('nix --extra-experimental-features nix-command store ping --store daemon', calls)
         self.assertIn('systemctl is-active --quiet nix-daemon.socket', calls)
         self.assertNotIn('enable --now nix-daemon.socket nix-daemon.service', calls)
+
+    def test_active_service_inactive_socket_recovered_and_idempotent(self):
+        # Reproduce Android Debian's post-install race, including systemd's
+        # refusal to listen while the target service is already running.
+        self.mock('sudo', """printf 'sudo %s\\n' "$*" >> "$CALLS"
+state="${CALLS}.state"
+[ -e "$state" ] || printf 'service\\n' > "$state"
+current=$(cat "$state")
+case "$*" in
+  *'daemon-reload'*|*'disable nix-daemon.service'*) exit 0 ;;
+  *'is-active --quiet nix-daemon.socket'*) [ "$current" = socket ] ;;
+  *'is-active --quiet nix-daemon.service'*) [ "$current" = service ] ;;
+  *'stop nix-daemon.service'*) printf 'stopped\\n' > "$state" ;;
+  *'enable --now nix-daemon.socket'*|*'start nix-daemon.socket'*)
+    [ "$current" != service ] || exit 1
+    printf 'socket\\n' > "$state" ;;
+  *'nix --extra-experimental-features nix-command store ping --store daemon'*)
+    [ "$current" = socket ] ;;
+  *) exit 0 ;;
+esac""")
+        for _ in range(2):
+            result = self.run_bootstrap()
+            self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.log.read_text().splitlines()
+        self.assertEqual(calls.count('sudo systemctl stop nix-daemon.service'), 1)
+        self.assertEqual(calls.count('sudo systemctl disable nix-daemon.service'), 2)
+        self.assertEqual(calls.count('sudo nix --extra-experimental-features nix-command store ping --store daemon'), 2)
+        self.assertEqual(calls.count('activation'), 2)
+        self.assertLess(calls.index('sudo systemctl stop nix-daemon.service'),
+                        calls.index('sudo systemctl enable --now nix-daemon.socket'))
+
+    def test_failed_daemon_ping_blocks_activation(self):
+        self.mock('sudo', """printf 'sudo %s\\n' "$*" >> "$CALLS"
+case "$*" in
+  *'nix --extra-experimental-features nix-command store ping --store daemon'*) exit 1 ;;
+  *) exit 0 ;;
+esac""")
+        result = self.run_bootstrap()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Nix daemon connection failed', result.stderr)
+        self.assertNotIn('activation', self.log.read_text())
 
     def test_nonzero_start_when_socket_is_active(self):
         self.mock('sudo', """printf 'sudo %s\\n' "$*" >> "$CALLS"
