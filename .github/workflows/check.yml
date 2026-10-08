@@ -18,7 +18,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y nix-bin nix-setup-systemd
-          sudo systemctl enable --now nix-daemon.socket nix-daemon.service
+          sudo systemctl disable nix-daemon.service
+          sudo systemctl stop nix-daemon.service
+          sudo systemctl reset-failed nix-daemon.socket
+          sudo systemctl enable --now nix-daemon.socket
+          sudo systemctl is-active --quiet nix-daemon.socket
+          sudo nix --extra-experimental-features nix-command store ping --store daemon
           getent group nix-users || sudo groupadd --system nix-users
           sudo usermod -aG nix-users "$(id -un)"
       - name: Evaluate and build pinned ARM64 Home Manager configuration
