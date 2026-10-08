@@ -18,8 +18,7 @@ Expected first run:
 - Add droid to nix-users.
 - Use `sg nix-users` automatically if the current login has stale group membership.
 
-After installation, open a fresh terminal to pick up the configured Zsh login
-shell. No manual VM restart or second bootstrap run is required for `nix-users`.
+After installation, open a fresh Android Terminal session: it should enter Zsh automatically, even when Android launches Bash directly. No manual VM restart or second bootstrap run is required for `nix-users`.
 Re-running `bash ~/.antix/bootstrap.sh` remains supported as an idempotency test.
 
 Expected:
@@ -82,7 +81,7 @@ bash ~/.antix/bootstrap.sh
 bash ~/.antix/commands/antix-rebuild.sh
 ```
 
-Zsh must resolve through the Home Manager profile with a clean login PATH.
+Zsh must resolve through the Home Manager profile with a clean login PATH. Bootstrap appends a guarded startup hook to the active Bash login file and ~/.bashrc, preserving existing content. Interactive Bash switches to Zsh; noninteractive scripts are unchanged. Test opt-out with `ANTIX_KEEP_BASH=1 bash -i` and verify the installer is idempotent.
 If Android resumes an existing shell instead of starting a login, close/reopen
 that session or run `exec ~/.nix-profile/bin/zsh -l`; changing `/etc/passwd`
 alone does not initialize PATH. Bash login dotfiles remain untouched. If login-shell switching fails, source

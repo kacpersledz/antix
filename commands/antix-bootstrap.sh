@@ -88,6 +88,38 @@ if [[ " $(id -nG) " != *' nix-users '* ]]; then
 else
   bash "$repo/commands/antix-rebuild.sh"
 fi
+# Android Terminal may launch Bash directly, ignoring the passwd login shell.
+# Append a small, idempotent hook; never replace the user's existing dotfiles.
+install_shell_hook() {
+  local target=$1
+  local begin='# >>> antix-shell-init >>>'
+  local end='# <<< antix-shell-init <<<'
+  [[ ! -L $target && ( ! -e $target || -f $target ) ]] ||
+    die "Refusing non-regular or symlinked shell startup file: $target"
+  if [[ -f $target ]] && grep -Fqx "$begin" "$target"; then
+    grep -Fqx "$end" "$target" ||
+      die "Incomplete Antix startup hook in $target"
+    return
+  fi
+  # Refuse a stray end marker rather than appending to a broken managed block.
+  if [[ -f $target ]] && grep -Fqx "$end" "$target"; then
+    die "Unexpected Antix startup hook marker in $target"
+  fi
+  # The literal $HOME expands when the startup file is sourced, not now.
+  # shellcheck disable=SC2016
+  printf '\n%s\n. "$HOME/.antix/commands/antix-shell-init.sh"\n%s\n' \
+    "$begin" "$end" >> "$target"
+}
+# Bash login reads the first existing file in this priority order.
+login_rc=$HOME/.profile
+for candidate in "$HOME/.bash_profile" "$HOME/.bash_login"; do
+  if [[ -e $candidate || -L $candidate ]]; then
+    login_rc=$candidate
+    break
+  fi
+done
+install_shell_hook "$login_rc"
+install_shell_hook "$HOME/.bashrc"
 export PATH="$HOME/.nix-profile/bin:$PATH"
 shell=$HOME/.nix-profile/bin/zsh
 if [[ -x $shell && $(getent passwd "$(id -un)" | cut -d: -f7) != "$shell" ]]; then
