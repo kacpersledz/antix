@@ -11,17 +11,26 @@ if ! command -v nix >/dev/null || ! dpkg-query -W -f='${Status}' nix-setup-syste
   sudo apt-get update
   sudo apt-get install -y nix-bin nix-setup-systemd
 fi
-# Debian's package post-install scripts may report a transient systemctl job
-# failure on a freshly booted Android VM. The socket is the readiness boundary:
-# systemd starts nix-daemon.service on demand when a Nix client connects.
-if ! sudo systemctl daemon-reload; then
-  die 'Could not reload systemd units after installing Debian Nix.'
+# Debian's nix-setup-systemd post-install may start nix-daemon.service before
+# nix-daemon.socket. Systemd then refuses to listen on the socket because its
+# service is already active. Use socket activation exclusively: keep the service
+# disabled at boot, and stop it only when it blocks an inactive socket.
+sudo systemctl daemon-reload || die 'Could not reload systemd units after installing Debian Nix.'
+sudo systemctl disable nix-daemon.service || die 'Could not disable independent Nix daemon service startup.'
+if ! sudo systemctl is-active --quiet nix-daemon.socket &&
+   sudo systemctl is-active --quiet nix-daemon.service; then
+  printf 'Nix daemon is active before its socket; stopping it for socket activation.\n'
+  sudo systemctl stop nix-daemon.service || die 'Could not stop Nix daemon blocking socket activation.'
 fi
 if ! sudo systemctl enable --now nix-daemon.socket; then
   printf 'Initial Nix socket start returned nonzero; checking actual socket state.\n' >&2
 fi
 if ! sudo systemctl is-active --quiet nix-daemon.socket; then
-  printf 'Nix daemon socket is not active; retrying start once after systemd reload.\n' >&2
+  printf 'Nix daemon socket is inactive; retrying after clearing the service/socket conflict.\n' >&2
+  if sudo systemctl is-active --quiet nix-daemon.service; then
+    sudo systemctl stop nix-daemon.service || die 'Could not stop Nix daemon blocking socket retry.'
+  fi
+  sudo systemctl reset-failed nix-daemon.socket || true
   sudo systemctl daemon-reload || true
   sudo systemctl start nix-daemon.socket || true
 fi
@@ -30,6 +39,14 @@ if ! sudo systemctl is-active --quiet nix-daemon.socket; then
   sudo systemctl status nix-daemon.socket nix-daemon.service --no-pager -l >&2 || true
   sudo journalctl -b -u nix-daemon.socket -u nix-daemon.service --no-pager -n 80 >&2 || true
   die 'Nix socket startup failed. Do not wipe /nix; inspect the diagnostics above.'
+fi
+# Verify that socket activation actually launches a usable daemon, not just
+# that systemd reports a listening socket. Root is used before nix-users
+# membership becomes active for the current login.
+if ! sudo nix --extra-experimental-features nix-command store ping --store daemon; then
+  sudo systemctl status nix-daemon.socket nix-daemon.service --no-pager -l >&2 || true
+  sudo journalctl -b -u nix-daemon.socket -u nix-daemon.service --no-pager -n 80 >&2 || true
+  die 'Nix daemon connection failed after socket activation.'
 fi
 getent group nix-users >/dev/null || sudo groupadd --system nix-users
 sudo usermod -aG nix-users "$(id -un)"
