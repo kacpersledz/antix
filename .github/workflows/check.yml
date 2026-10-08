@@ -28,6 +28,9 @@ jobs:
             max-jobs = 1
             cores = 1
         run: |
+          # Isolate activation from runner dotfiles without overwriting conflicts.
+          export HOME="$RUNNER_TEMP/antix-home"
+          mkdir -p "$HOME"
           export ANTIX_USER="$(id -un)" ANTIX_HOME="$HOME"
           sg nix-users -c 'nix eval --impure --no-update-lock-file --raw .#homeConfigurations.antix.activationPackage.drvPath'
           sg nix-users -c 'nix eval --json --file tests/configuration.nix'

@@ -120,9 +120,12 @@ class Baseline(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(target.read_text(), 'do not overwrite\n')
                 path.unlink()
+        before = (config/'nix.conf').read_text() if (config/'nix.conf').exists() else None
         (config/'antix.conf').write_text('unexpected = true\n')
         self.assertNotEqual(self.run_bootstrap().returncode, 0)
         self.assertEqual((config/'antix.conf').read_text(), 'unexpected = true\n')
+        after = (config/'nix.conf').read_text() if (config/'nix.conf').exists() else None
+        self.assertEqual(before, after)
         self.assertNotIn('activation', self.log.read_text())
 
     def test_rebuild_uses_runtime_identity_and_direct_activation(self):
