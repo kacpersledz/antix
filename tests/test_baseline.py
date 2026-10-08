@@ -68,6 +68,38 @@ class Baseline(unittest.TestCase):
         self.assertNotIn('apt-get install -y age', calls)
         self.assertNotIn('Bitwarden', result.stdout+result.stderr)
 
+    def test_socket_activation_only(self):
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.log.read_text()
+        self.assertIn('systemctl enable --now nix-daemon.socket', calls)
+        self.assertIn('systemctl is-active --quiet nix-daemon.socket', calls)
+        self.assertNotIn('enable --now nix-daemon.socket nix-daemon.service', calls)
+
+    def test_nonzero_start_when_socket_is_active(self):
+        self.mock('sudo', """printf 'sudo %s\\n' "$*" >> "$CALLS"
+case "$*" in
+  *'enable --now nix-daemon.socket'*) exit 1 ;;
+  *) exit 0 ;;
+esac""")
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('activation', self.log.read_text())
+
+    def test_inactive_socket_retries_then_reports_diagnostics(self):
+        self.mock('sudo', """printf 'sudo %s\\n' "$*" >> "$CALLS"
+case "$*" in
+  *'is-active --quiet nix-daemon.socket'*) exit 3 ;;
+  *) exit 0 ;;
+esac""")
+        result = self.run_bootstrap()
+        self.assertNotEqual(result.returncode, 0)
+        calls = self.log.read_text()
+        self.assertIn('systemctl start nix-daemon.socket', calls)
+        self.assertIn('journalctl -b -u nix-daemon.socket', calls)
+        self.assertNotIn('activation', calls)
+        self.assertIn('Nix socket startup failed', result.stderr)
+
     def test_minimal_config_migration(self):
         config = self.home/'.config/nix'
         config.mkdir(parents=True)
