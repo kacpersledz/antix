@@ -7,7 +7,7 @@ FORBIDDEN = re.compile(r"^[^-]+-(?:nix-[0-9]|sops(?:-|$)|age-[0-9]|openssh-|shpo
 
 
 def check(paths):
-    return [path for path in paths if FORBIDDEN.search(Path(path).name) and not re.search(r"-gcc-[0-9].*-lib$", Path(path).name)]
+    return [path for path in paths if FORBIDDEN.search(Path(path).name) and not re.search(r"-gcc-[0-9].*-(lib|libgcc)$", Path(path).name)]
 
 
 if __name__ == "__main__":
