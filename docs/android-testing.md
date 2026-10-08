@@ -96,3 +96,16 @@ Feature-branch update intentionally refuses operation; use rebuild there.
 Record actual CI local derivations, closure size, activation duration, VM
 responsiveness, and repeated-run results. No ARM64 build or Android compatibility
 claim should be made until those respective checks run successfully.
+
+## Debian Nix package setup warning
+
+On a fresh Android Terminal Debian VM, `nix-setup-systemd` may print
+`Could not execute systemctl` or `Job failed` while APT configures packages.
+These messages do not, by themselves, establish that the socket remains down.
+Bootstrap reloads systemd, enables the Nix daemon socket, verifies its active
+state, and retries once before failing with unit status and journal output.
+It deliberately relies on systemd socket activation rather than eagerly starting
+the daemon service. Do not wipe the Nix store because of the APT warning alone.
+
+After the expected `nix-users` login-group restart, resume with
+`bash ~/.antix/bootstrap.sh`.
