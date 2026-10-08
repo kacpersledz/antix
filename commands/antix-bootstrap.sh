@@ -11,7 +11,26 @@ if ! command -v nix >/dev/null || ! dpkg-query -W -f='${Status}' nix-setup-syste
   sudo apt-get update
   sudo apt-get install -y nix-bin nix-setup-systemd
 fi
-sudo systemctl enable --now nix-daemon.socket nix-daemon.service
+# Debian's package post-install scripts may report a transient systemctl job
+# failure on a freshly booted Android VM. The socket is the readiness boundary:
+# systemd starts nix-daemon.service on demand when a Nix client connects.
+if ! sudo systemctl daemon-reload; then
+  die 'Could not reload systemd units after installing Debian Nix.'
+fi
+if ! sudo systemctl enable --now nix-daemon.socket; then
+  printf 'Initial Nix socket start returned nonzero; checking actual socket state.\n' >&2
+fi
+if ! sudo systemctl is-active --quiet nix-daemon.socket; then
+  printf 'Nix daemon socket is not active; retrying start once after systemd reload.\n' >&2
+  sudo systemctl daemon-reload || true
+  sudo systemctl start nix-daemon.socket || true
+fi
+if ! sudo systemctl is-active --quiet nix-daemon.socket; then
+  printf 'Nix daemon socket remains inactive. Systemd diagnostics:\n' >&2
+  sudo systemctl status nix-daemon.socket nix-daemon.service --no-pager -l >&2 || true
+  sudo journalctl -b -u nix-daemon.socket -u nix-daemon.service --no-pager -n 80 >&2 || true
+  die 'Nix socket startup failed. Do not wipe /nix; inspect the diagnostics above.'
+fi
 getent group nix-users >/dev/null || sudo groupadd --system nix-users
 sudo usermod -aG nix-users "$(id -un)"
 mkdir -p "$HOME/.config/nix"
